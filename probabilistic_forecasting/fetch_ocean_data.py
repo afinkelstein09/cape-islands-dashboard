@@ -27,26 +27,36 @@ def _annual_mean(values: Iterable[float]) -> float | None:
     return sum(vals) / len(vals) if vals else None
 
 
-def _fetch_year(product: str, year: int, units: str = "english") -> list[float] | None:
-    """Return a list of monthly values for `product` in `year`, or None on failure."""
-    cache_file = CACHE_DIR / f"{product}_{year}.json"
+_DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+
+def _is_leap(y: int) -> bool:
+    return y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
+
+
+def _fetch_month(product: str, year: int, month: int, units: str = "english") -> list[float] | None:
+    """Pull one month of `product` readings. Returns list of floats or None on failure."""
+    cache_file = CACHE_DIR / f"{product}_{year}_{month:02d}.json"
     if cache_file.exists():
         try:
             return json.loads(cache_file.read_text())
         except json.JSONDecodeError:
             pass
 
+    days = _DAYS_IN_MONTH[month - 1] + (1 if month == 2 and _is_leap(year) else 0)
     params = {
         "product": product,
         "application": "cape_islands_dashboard",
         "station": STATION,
-        "begin_date": f"{year}0101",
-        "end_date": f"{year}1231",
+        "begin_date": f"{year}{month:02d}01",
+        "end_date":   f"{year}{month:02d}{days:02d}",
         "datum": "MLLW",
         "time_zone": "lst",
         "units": units,
         "format": "json",
-        "interval": "m",  # monthly averages where supported
+        "interval": "h",  # hourly readings — NOAA sensor products are
+                          # capped at 31 days per request, so monthly chunks
+                          # are the largest window we can ask for.
     }
     try:
         resp = requests.get(NOAA_BASE, params=params, timeout=20)
@@ -54,8 +64,10 @@ def _fetch_year(product: str, year: int, units: str = "english") -> list[float] 
         body = resp.json()
     except (requests.RequestException, ValueError):
         return None
+    if "error" in body:
+        return None
 
-    data = body.get("data") or body.get("predictions") or []
+    data = body.get("data") or []
     values: list[float] = []
     for row in data:
         raw = row.get("v") or row.get("value")
@@ -69,6 +81,62 @@ def _fetch_year(product: str, year: int, units: str = "english") -> list[float] 
     if values:
         cache_file.write_text(json.dumps(values))
     return values or None
+
+
+def _fetch_year(product: str, year: int, units: str = "english") -> list[float] | None:
+    """Aggregate `product` readings for an entire year (one mean per month).
+
+    Returns up to 12 monthly means, or None if every month failed.
+    """
+    monthly_means: list[float] = []
+    for m in range(1, 13):
+        raw = _fetch_month(product, year, m, units=units)
+        if not raw:
+            continue
+        monthly_means.append(sum(raw) / len(raw))
+    return monthly_means or None
+
+
+def _fetch_monthly_mean(year: int) -> list[float] | None:
+    """The `monthly_mean` product (used for SLR) accepts a full-year range."""
+    cache_file = CACHE_DIR / f"monthly_mean_{year}.json"
+    if cache_file.exists():
+        try:
+            return json.loads(cache_file.read_text())
+        except json.JSONDecodeError:
+            pass
+    params = {
+        "product": "monthly_mean",
+        "application": "cape_islands_dashboard",
+        "station": STATION,
+        "begin_date": f"{year}0101",
+        "end_date":   f"{year}1231",
+        "datum": "MLLW",
+        "time_zone": "lst",
+        "units": "english",
+        "format": "json",
+    }
+    try:
+        resp = requests.get(NOAA_BASE, params=params, timeout=20)
+        resp.raise_for_status()
+        body = resp.json()
+    except (requests.RequestException, ValueError):
+        return None
+    if "error" in body:
+        return None
+    data = body.get("data") or []
+    msls: list[float] = []
+    for row in data:
+        v = row.get("MSL")
+        if v in (None, ""):
+            continue
+        try:
+            msls.append(float(v))
+        except (TypeError, ValueError):
+            continue
+    if msls:
+        cache_file.write_text(json.dumps(msls))
+    return msls or None
 
 
 def fetch_sst_history(start: int = 2005, end: int | None = None) -> tuple[list[int], list[float]]:
@@ -93,12 +161,12 @@ def fetch_slr_history(start: int = 1993, end: int | None = None) -> tuple[list[i
     msl_in: list[float] = []
     baseline: float | None = None
     for y in range(start, end + 1):
-        monthly = _fetch_year("monthly_mean", y)
+        monthly = _fetch_monthly_mean(y)
         mean = _annual_mean(monthly) if monthly else None
         if mean is None:
             continue
         # NOAA returns MSL in feet relative to MLLW; convert to inches and
-        # rebase to first year.
+        # rebase to the first observed year.
         inches = mean * 12.0
         if baseline is None:
             baseline = inches
