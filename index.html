@@ -1148,31 +1148,58 @@
   <div class="ov-body">
 
     <div class="method-section">
-      <h3>Satellite Erosion Analysis (Sentinel-2)</h3>
-      <p>Coastal land-change detection uses ESA Sentinel-2 multispectral imagery processed through <strong>Google Earth Engine</strong>. Two methods are used depending on data availability:</p>
-      <p><strong>Primary (when available):</strong> <strong>CoastSat U-Net</strong> — a deep-learning model trained on labeled satellite imagery that classifies water/land per pixel and extracts a sub-pixel shoreline polyline for each scene. Robust to wet sand, cliff shadows, seaweed, and breaking waves where simple thresholds fail. Zones using this method show an <span class="ml-badge" style="cursor:default">ML</span> badge.</p>
-      <p><strong>Fallback:</strong> <strong>Normalized Difference Water Index (NDWI)</strong> — a spectral threshold on Green and Near-Infrared bands. Faster, simpler, but loses accuracy on edge cases. Used where ML output isn't yet available.</p>
-      <p>Imagery is restricted to a <strong>September–October seasonal window</strong> each year to compare beaches in their late-summer profile (after rebuilding, before nor'easter season), eliminating seasonal-noise from the change-rate signal. Per-year mean shoreline positions feed a linear regression to produce 2-, 3-, 5-, and 7-year erosion rates.</p>
-      <p>Converting area loss to linear retreat requires dividing by each zone's calibrated shoreline length, tuned to match published USGS survey rates. Tidal-flat zones (Barnstable, Dennis &amp; Brewster) are reported as <strong>ac/yr</strong> where a reliable shoreline length cannot be defined.</p>
+      <p style="font-size:.78rem;color:var(--muted);background:var(--bg);padding:.65rem .85rem;border-radius:6px;line-height:1.6;margin-bottom:1.25rem">
+        The dashboard combines three independent data streams: satellite imagery (for shoreline change), NOAA tide-gauge readings (for ocean conditions), and ground-survey rates (for calibration). Two machine-learning layers sit on top — one for satellite shoreline detection, one for forecasting ocean trends. Everything else is plain arithmetic, transparently scored.
+      </p>
+    </div>
+
+    <div class="method-section">
+      <h3>1 · Satellite shoreline detection</h3>
+      <p>ESA Sentinel-2 imagery (10 m resolution) is pulled through Google Earth Engine for each of the 19 zones, restricted to a <strong>September–October window</strong> each year so beaches are compared in their late-summer profile (after rebuilding, before nor'easters). This eliminates seasonal noise from the change signal.</p>
+      <p><strong>Primary method — CoastSat U-Net:</strong> a deep-learning model trained on labeled satellite imagery that classifies water/land per pixel and extracts a sub-pixel shoreline polyline for each scene. Robust to wet sand, cliff shadows, seaweed, and breaking waves where simple thresholds fail. Zones using this method show an <span class="ml-badge" style="cursor:default">ML</span> badge.</p>
+      <p><strong>Fallback — NDWI threshold:</strong> a spectral index on the Green and Near-Infrared bands. Faster, simpler, less accurate on edge cases. Used where ML output isn't yet available.</p>
+      <p>Per-year shoreline positions feed a linear regression to produce 2-, 3-, 5-, and 7-year erosion rates. For tidal-flat zones (Barnstable, Dennis &amp; Brewster) where a stable shoreline length can't be defined, rates are reported in <strong>ac/yr</strong> instead of <strong>ft/yr</strong>.</p>
       <div>
         <span class="method-tag">CoastSat U-Net (primary)</span>
         <span class="method-tag">NDWI = (Green − NIR) / (Green + NIR) (fallback)</span>
-        <span class="method-tag">10m resolution</span>
+        <span class="method-tag">10 m resolution</span>
         <span class="method-tag">Sept–Oct window</span>
-        <span class="method-tag">ft/yr = (annual m²/yr ÷ shoreline m) × 3.28084</span>
       </div>
     </div>
 
     <div class="method-section">
-      <h3>Composite Risk Index</h3>
-      <p>Each zone receives a composite score (0–10) combining weighted erosion rate, trend direction, recent acceleration, habitat stress, and threat severity. The erosion-rate component prefers the CoastSat-derived 7-year rate from <code>zones_ml.json</code> when available, falling back to the published USGS/MCZM survey rate otherwise. The index ranks zones so conservation effort can be prioritized where multiple factors overlap, not just where erosion is fastest.</p>
-      <p><strong>Thresholds:</strong> ≥7 = <span style="color:#b83232">High</span>, 4–7 = <span style="color:#d4722a">Medium</span>, &lt;4 = <span style="color:#2e7d5a">Low</span>. Zone colors on the map reflect this score.</p>
-      <p>Ocean data charts (SST, sea level, salinity) include <strong>Gaussian Process regression</strong> trend lines with 5–10 year forward projections, labeled as "ML Proj." in the legend. The shaded purple band shows the 90% confidence envelope — the model's range of plausible values around the projected trend. Outlier years (e.g. partial-year readings) are flagged and excluded from the fit.</p>
+      <h3>2 · Ocean conditions</h3>
+      <p>Sea surface temperature, sea level, and salinity charts are built from <strong>NOAA CO-OPS Station 8447930 (Woods Hole, MA)</strong> — the closest continuously-operating tide gauge to the region. SST and SLR are pulled as real annual averages back to 1993 (sea level) and 2005 (temperature). Salinity uses dashboard-maintained historical values because no live API source exists for that station.</p>
+      <div>
+        <span class="method-tag">NOAA CO-OPS · Woods Hole 8447930</span>
+        <span class="method-tag">Annual averages, real measurements</span>
+      </div>
+    </div>
+
+    <div class="method-section">
+      <h3>3 · Probabilistic forecasts (Gaussian Process)</h3>
+      <p>The dashed "ML Proj." line on every ocean chart comes from <strong>Gaussian Process regression</strong> — a real machine-learning model fit to the historical NOAA series in Python (scikit-learn). The shaded purple band shows the <strong>90% confidence envelope</strong> — the model's range of plausible values around the projected trend, widening into the future as uncertainty grows.</p>
+      <p>Outlier years (e.g. partial-year readings or sensor anomalies) are automatically flagged via a residual-based detector and excluded from the fit, so a bad reading doesn't skew the projection.</p>
+      <div>
+        <span class="method-tag">GP kernel: ConstantKernel × RBF + WhiteNoise</span>
+        <span class="method-tag">90% confidence band</span>
+        <span class="method-tag">Automatic outlier exclusion</span>
+      </div>
+    </div>
+
+    <div class="method-section">
+      <h3>4 · Composite Risk Index</h3>
+      <p>Each zone receives a composite score (0–10) combining weighted erosion rate, trend direction, recent acceleration, habitat stress, and threat severity. The erosion-rate component prefers the CoastSat-derived 7-year rate when available, falling back to the published USGS/MCZM survey rate otherwise.</p>
+      <p>The index ranks zones so conservation effort can be prioritized where multiple factors overlap, not just where erosion is fastest.</p>
+      <p><strong>Thresholds:</strong> ≥7 = <span style="color:#b83232">High</span>, 4–7 = <span style="color:#d4722a">Medium</span>, &lt;4 = <span style="color:#2e7d5a">Low</span>. Zone polygon colors on the map reflect this score.</p>
+      <div>
+        <span class="method-tag">Weights — erosion .45 · trend .15 · habitat .15 · accel .15 · risks .10</span>
+      </div>
     </div>
 
     <div class="method-section">
       <h3>Citing This Dashboard</h3>
-      <p style="font-size:.78rem;color:var(--muted);background:var(--bg);padding:.65rem .85rem;border-radius:6px;line-height:1.6">Cape and Islands Conservation Dashboard (2025). Coastal erosion and habitat monitoring for Martha's Vineyard, Nantucket, and Cape Cod. Satellite analysis: ESA Sentinel-2 via Google Earth Engine. Live ocean data: NOAA CO-OPS Station 8447930 (Woods Hole, MA). Survey rates: USGS National Shoreline Change Database. Composite risk index: weighted multi-factor scoring. Coastal management data: MA Coastal Zone Management.</p>
+      <p style="font-size:.78rem;color:var(--muted);background:var(--bg);padding:.65rem .85rem;border-radius:6px;line-height:1.6">Cape and Islands Conservation Dashboard (2026). Coastal erosion and habitat monitoring for Martha's Vineyard, Nantucket, and Cape Cod. Satellite analysis: ESA Sentinel-2 + CoastSat U-Net via Google Earth Engine. Ocean data: NOAA CO-OPS Station 8447930 (Woods Hole, MA). Forecasts: Gaussian Process regression (scikit-learn). Survey rates: USGS National Shoreline Change Database. Coastal management data: MA Coastal Zone Management.</p>
     </div>
 
   </div>
