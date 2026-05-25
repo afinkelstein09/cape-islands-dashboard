@@ -1,0 +1,17 @@
+# CoastSat itself isn't on PyPI as a single package; install from GitHub:
+#   git clone https://github.com/kvos/CoastSat
+#   pip install ./CoastSat
+# The deps below are what CoastSat needs at runtime plus our own.
+earthengine-api>=0.1.380
+numpy>=1.24
+matplotlib>=3.7
+scikit-image>=0.21
+scikit-learn>=1.3
+pyproj>=3.6
+shapely>=2.0
+geopandas>=0.14
+pandas>=2.0
+requests>=2.31
+# TensorFlow is required by CoastSat's CNN classifier. Use the version that
+# matches your Python/CUDA setup; CPU is fine for inference at this scale.
+tensorflow>=2.12

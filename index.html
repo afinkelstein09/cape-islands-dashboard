@@ -1498,7 +1498,7 @@ function styleZone(id, fillOpacity, weight) {
   let color = riskColor[d?.erosionRisk];
   if (d && typeof computeRiskScore === 'function') {
     try {
-      const sc = computeRiskScore(d).total;
+      const sc = computeRiskScore(d, id).total;
       const ml = sc >= 7 ? 'High' : sc >= 4 ? 'Medium' : 'Low';
       color = riskColor[ml];
     } catch(e) {}
@@ -1794,6 +1794,38 @@ function refreshOpenPanel() {
 setDataStatus('inline');
 setTimeout(buildTrendBadges, 200);
 
+// ── ML FORECASTS (Gaussian Process output from probabilistic_forecasting/) ──
+// Loaded async — charts initialize with OLS fallback, then re-render with GP
+// bands once forecasts.json arrives. Missing file = current behavior preserved.
+let mlForecasts = null;
+(async function loadMLForecasts() {
+  try {
+    const resp = await fetch('forecasts.json', { cache: 'no-cache' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    mlForecasts = await resp.json();
+    if (typeof applyAllProjections === 'function') applyAllProjections();
+  } catch (_) {
+    // forecasts.json not deployed yet — leave OLS fallback in place
+  }
+})();
+
+// ── ML ZONES (CoastSat U-Net output from coastsat_segmentation/) ──
+// Provides per-zone erosion rates derived from deep-learning segmentation.
+// When present, computeRiskScore prefers the 7yr ML rate over the hardcoded
+// areaData.erosionRate value.
+let mlZones = null;
+(async function loadMLZones() {
+  try {
+    const resp = await fetch('zones_ml.json', { cache: 'no-cache' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const body = await resp.json();
+    mlZones = body && body.zones ? body.zones : null;
+    if (typeof recolorByMLScore === 'function') recolorByMLScore();
+  } catch (_) {
+    // zones_ml.json not deployed yet — fall back to areaData.erosionRate
+  }
+})();
+
 // Async load: try sessionStorage cache first, then network
 (async function loadSatelliteData() {
   const CACHE_KEY = 'caic_sat_data';
@@ -1976,7 +2008,7 @@ function openAreaPanel(id) {
   })();
 
   let html = `
-    ${buildRiskScoreHTML(d)}
+    ${buildRiskScoreHTML(d, id)}
     ${_analysisSnippet}
 
     <div class="panel-divider"></div>
@@ -2395,7 +2427,23 @@ function closeAllOverlays() {
 // ── CHARTS ────────────────────────────────────────────────
 const cDefaults = {
   responsive: true, maintainAspectRatio: true,
-  plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } } },
+  plugins: {
+    legend: {
+      labels: {
+        font: { size: 10 }, boxWidth: 10, padding: 8,
+        filter: function(item, chartData) {
+          const ds = chartData.datasets[item.datasetIndex];
+          return !(ds && ds._mlBand);
+        }
+      }
+    },
+    tooltip: {
+      filter: function(tooltipItem) {
+        const ds = tooltipItem.chart.data.datasets[tooltipItem.datasetIndex];
+        return !(ds && ds._mlBand);
+      }
+    }
+  },
   scales: {
     x: { ticks: { font: { size: 9 } }, grid: { color: 'rgba(0,0,0,.04)' } },
     y: { ticks: { font: { size: 9 } }, grid: { color: 'rgba(0,0,0,.06)' } }
@@ -2445,12 +2493,15 @@ function initCharts() {
           labels: {
             ...((cDefaults.plugins && cDefaults.plugins.legend && cDefaults.plugins.legend.labels) || {}),
             generateLabels: function(chart) {
-              return chart.data.datasets.map(function(ds, i) {
-                if (ds.label === 'ML Proj.') {
-                  return { text:'ML Proj.', fontColor:'#666', fillStyle:'rgba(0,0,0,0.1)', strokeStyle:'#6c5ce7', lineWidth:2, lineDash:[6,3], hidden:!chart.isDatasetVisible(i), datasetIndex:i };
-                }
-                return { text:ds.label, fontColor:'#666', fillStyle:'rgba(184,50,50,.1)', strokeStyle:'#b83232', lineWidth:3, lineDash:[], hidden:!chart.isDatasetVisible(i), datasetIndex:i };
-              });
+              return chart.data.datasets
+                .map(function(ds, i) {
+                  if (ds._mlBand) return null;  // hide confidence-band helpers
+                  if (ds.label === 'ML Proj.') {
+                    return { text:'ML Proj.', fontColor:'#666', fillStyle:'rgba(108,92,231,0.16)', strokeStyle:'#6c5ce7', lineWidth:2, lineDash:[6,3], hidden:!chart.isDatasetVisible(i), datasetIndex:i };
+                  }
+                  return { text:ds.label, fontColor:'#666', fillStyle:'rgba(184,50,50,.1)', strokeStyle:'#b83232', lineWidth:3, lineDash:[], hidden:!chart.isDatasetVisible(i), datasetIndex:i };
+                })
+                .filter(Boolean);
             }
           }
         }
@@ -2931,7 +2982,7 @@ function generateAreaReport() {
   : '<tr><td colspan="4" style="color:#aaa;font-style:italic">Satellite data not available for this zone</td></tr>';
 
   // Composite Risk Index for report
-  const _mlResult = computeRiskScore(d);
+  const _mlResult = computeRiskScore(d, currentAreaId);
   const _mlScore = _mlResult.total.toFixed(1);
   const _mlLabel = _mlResult.total >= 7 ? 'High' : _mlResult.total >= 4 ? 'Medium' : 'Low';
   const _mlColor = _mlResult.total >= 7 ? '#b83232' : _mlResult.total >= 4 ? '#d4722a' : '#2e7d5a';
@@ -3343,9 +3394,11 @@ let salinityChartInstance = null;
 function updateSLRChart(years, values) {
   // If the chart already exists, update its data
   if (slrChartInstance) {
+    _stripMLDatasets(slrChartInstance);
     slrChartInstance.data.labels   = years;
     slrChartInstance.data.datasets[0].data = values;
     slrChartInstance.update();
+    addSLRTrendProjection(slrChartInstance, 10, 'slr_forecast');
   } else {
     // Store the data so initCharts() can use it
     window._liveYears  = years;
@@ -3455,13 +3508,12 @@ let _projectionsApplied = false;
 
 function updateSSTChart(years, values) {
   if (sstChartInstance) {
-    // Strip any prior projection datasets before re-applying
+    _stripMLDatasets(sstChartInstance);
     sstChartInstance.data.labels = years;
-    sstChartInstance.data.datasets = [sstChartInstance.data.datasets[0], sstChartInstance.data.datasets[1]].filter(Boolean);
     sstChartInstance.data.datasets[0].data = values;
     if (sstChartInstance.data.datasets[1]) sstChartInstance.data.datasets[1].data = Array(years.length).fill(53.2);
     sstChartInstance.update();
-    addTrendProjection(sstChartInstance, 5);
+    addTrendProjection(sstChartInstance, 5, 'sst_forecast');
   } else {
     window._liveSSTYears  = years;
     window._liveSSTValues = values;
@@ -3471,11 +3523,11 @@ function updateSSTChart(years, values) {
 
 function updateSalinityChart(years, values) {
   if (salinityChartInstance) {
+    _stripMLDatasets(salinityChartInstance);
     salinityChartInstance.data.labels = years;
-    salinityChartInstance.data.datasets = [salinityChartInstance.data.datasets[0]];
     salinityChartInstance.data.datasets[0].data = values;
     salinityChartInstance.update();
-    addTrendProjection(salinityChartInstance, 5);
+    addTrendProjection(salinityChartInstance, 5, 'salinity_forecast');
   } else {
     window._liveSalYears  = years;
     window._liveSalValues = values;
@@ -3515,122 +3567,141 @@ function linearRegression(xs, ys) {
   return { slope, intercept, r2, se };
 }
 
-// Add projection datasets (dashed trend line + confidence band) to a Chart.js line chart.
-// projYears = how many years into the future to project.
-function addTrendProjection(chartInstance, projYears) {
+// Strip any datasets previously added by a projection call (OLS or GP),
+// so re-applying after live-data refresh doesn't accumulate.
+function _stripMLDatasets(chartInstance) {
   if (!chartInstance || !chartInstance.data) return;
-  const labels = chartInstance.data.labels;
-  const values = chartInstance.data.datasets[0].data;
-  if (!labels || labels.length < 5) return;
-
-  const allXs = labels.map(l => parseInt(l));
-  const allYs = values.map(v => parseFloat(v));
-
-  // Fit regression on COMPLETE years only (exclude current calendar year
-  // since it may only have partial data, e.g. winter-only reading).
-  const currentYear = new Date().getFullYear();
-  const xs = [], ys = [];
-  for (let i = 0; i < allXs.length; i++) {
-    if (allXs[i] < currentYear && !isNaN(allYs[i])) {
-      xs.push(allXs[i]);
-      ys.push(allYs[i]);
-    }
-  }
-  const reg = linearRegression(xs, ys);
-  if (!reg || isNaN(reg.slope)) return;
-
-  // Build projected labels — extend from the last label year (which may be
-  // the current partial year) out by projYears.
-  const lastLabelYear = allXs[allXs.length - 1];
-  const allLabels = [...labels];
-  for (let y = lastLabelYear + 1; y <= lastLabelYear + projYears; y++) {
-    allLabels.push(String(y));
-  }
-
-  // Compute trend for every label (including partial year + projections)
-  const trendLine = allLabels.map(l => { const x = parseInt(l); return +(reg.slope*x + reg.intercept).toFixed(2); });
-
-  // Pad original data with nulls for projected years
-  const paddedOriginal = [...values];
-  while (paddedOriginal.length < allLabels.length) paddedOriginal.push(null);
-
-  // Update chart
-  chartInstance.data.labels = allLabels;
-  chartInstance.data.datasets[0].data = paddedOriginal;
-
-  // Keep baseline dataset in sync if it exists (SST has one)
-  if (chartInstance.data.datasets[1] && chartInstance.data.datasets[1].label.includes('Baseline')) {
-    chartInstance.data.datasets[1].data = Array(allLabels.length).fill(chartInstance.data.datasets[1].data[0]);
-  }
-
-  // Add trend + projection line
-  chartInstance.data.datasets.push({
-    label: 'ML Proj.',
-    data: trendLine,
-    borderColor: '#6c5ce7',
-    borderDash: [6, 3],
-    borderWidth: 2,
-    pointRadius: 0,
-    fill: false,
-    tension: 0.3,
-    order: 1
-  });
-
-  chartInstance.update();
+  chartInstance.data.datasets = chartInstance.data.datasets.filter(ds => !ds._mlGenerated);
 }
 
-// Apply projections once data is ready
-function applyAllProjections() {
-  if (sstChartInstance)      addTrendProjection(sstChartInstance, 5);
-  if (salinityChartInstance) addTrendProjection(salinityChartInstance, 5);
-  // SLR is a bar chart — add a trend overlay as a line dataset
-  if (slrChartInstance) addSLRTrendProjection(slrChartInstance, 10);
-}
+// Add projection datasets to a Chart.js line chart.
+// If GP forecast is available for `forecastKey`, renders mean + 90% confidence
+// band (3 datasets). Otherwise falls back to the original OLS line.
+// projYears = how many years into the future to project (used only by OLS fallback).
+function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
+  if (!chartInstance || !chartInstance.data) return;
+  _stripMLDatasets(chartInstance);
+  opts = opts || {};
+  const asLine = opts.asLine === true;  // true for SLR (bar chart overlay)
 
-function addSLRTrendProjection(chartInstance, projYears) {
   const labels = chartInstance.data.labels;
   const values = chartInstance.data.datasets[0].data;
   if (!labels || labels.length < 4) return;
 
-  const allXs = labels.map(l => parseInt(l));
-  const allYs = values.map(v => parseFloat(v));
-  const currentYear = new Date().getFullYear();
-  const xs = [], ys = [];
-  for (let i = 0; i < allXs.length; i++) {
-    if (allXs[i] < currentYear && !isNaN(allYs[i]) && allYs[i] !== null) {
-      xs.push(allXs[i]);
-      ys.push(allYs[i]);
+  const gp = mlForecasts && forecastKey ? mlForecasts[forecastKey] : null;
+
+  let allLabels, meanLine, lowerLine, upperLine;
+
+  if (gp && gp.years && gp.mean) {
+    // GP path: align GP years with the chart's label space.
+    allLabels = gp.years.map(String);
+    meanLine  = gp.mean.slice();
+    lowerLine = gp.lower_90 ? gp.lower_90.slice() : null;
+    upperLine = gp.upper_90 ? gp.upper_90.slice() : null;
+
+    // Rebuild observed data aligned to GP years (null where no observation).
+    const obsByYear = {};
+    labels.forEach((l, i) => { obsByYear[String(l)] = values[i]; });
+    const paddedObserved = allLabels.map(l => (l in obsByYear) ? obsByYear[l] : null);
+    chartInstance.data.labels = allLabels;
+    chartInstance.data.datasets[0].data = paddedObserved;
+
+    // Keep baseline dataset (SST '30-yr Baseline') in sync if present.
+    if (chartInstance.data.datasets[1] && (chartInstance.data.datasets[1].label || '').includes('Baseline')) {
+      const base = chartInstance.data.datasets[1].data[0];
+      chartInstance.data.datasets[1].data = Array(allLabels.length).fill(base);
+    }
+  } else {
+    // OLS fallback — original behavior, preserved exactly.
+    const allXs = labels.map(l => parseInt(l));
+    const allYs = values.map(v => parseFloat(v));
+    const currentYear = new Date().getFullYear();
+    const xs = [], ys = [];
+    for (let i = 0; i < allXs.length; i++) {
+      if (allXs[i] < currentYear && !isNaN(allYs[i]) && allYs[i] !== null) {
+        xs.push(allXs[i]); ys.push(allYs[i]);
+      }
+    }
+    const reg = linearRegression(xs, ys);
+    if (!reg || isNaN(reg.slope)) return;
+    const lastLabelYear = allXs[allXs.length - 1];
+    allLabels = labels.map(String);
+    for (let y = lastLabelYear + 1; y <= lastLabelYear + projYears; y++) {
+      allLabels.push(String(y));
+    }
+    meanLine = allLabels.map(l => +(reg.slope*parseInt(l) + reg.intercept).toFixed(2));
+
+    const paddedObserved = [...values];
+    while (paddedObserved.length < allLabels.length) paddedObserved.push(null);
+    chartInstance.data.labels = allLabels;
+    chartInstance.data.datasets[0].data = paddedObserved;
+    if (chartInstance.data.datasets[1] && (chartInstance.data.datasets[1].label || '').includes('Baseline')) {
+      const base = chartInstance.data.datasets[1].data[0];
+      chartInstance.data.datasets[1].data = Array(allLabels.length).fill(base);
     }
   }
-  const reg = linearRegression(xs, ys);
-  if (!reg) return;
 
-  const lastLabelYear = allXs[allXs.length - 1];
-  const allLabels = [...labels];
-  for (let y = lastLabelYear + 1; y <= lastLabelYear + projYears; y++) {
-    allLabels.push(String(y));
+  const bandColor = 'rgba(108,92,231,0.16)';
+  const lineColor = '#6c5ce7';
+
+  if (lowerLine && upperLine) {
+    chartInstance.data.datasets.push({
+      label: '_band_lower',
+      data: lowerLine,
+      type: asLine ? 'line' : undefined,
+      borderColor: 'transparent',
+      backgroundColor: bandColor,
+      borderWidth: 0,
+      pointRadius: 0,
+      fill: false,
+      tension: 0.3,
+      order: 3,
+      _mlGenerated: true,
+      _mlBand: true,
+    });
+    chartInstance.data.datasets.push({
+      label: '_band_upper',
+      data: upperLine,
+      type: asLine ? 'line' : undefined,
+      borderColor: 'transparent',
+      backgroundColor: bandColor,
+      borderWidth: 0,
+      pointRadius: 0,
+      fill: '-1',  // fill toward the previous dataset (lower band)
+      tension: 0.3,
+      order: 2,
+      _mlGenerated: true,
+      _mlBand: true,
+    });
   }
-  const trendLine = allLabels.map(l => { const x = parseInt(l); return +(reg.slope*x + reg.intercept).toFixed(2); });
-  const paddedBars = [...values];
-  while (paddedBars.length < allLabels.length) paddedBars.push(null);
-
-  chartInstance.data.labels = allLabels;
-  chartInstance.data.datasets[0].data = paddedBars;
 
   chartInstance.data.datasets.push({
     label: 'ML Proj.',
-    data: trendLine,
-    type: 'line',
-    borderColor: '#6c5ce7',
+    data: meanLine,
+    type: asLine ? 'line' : undefined,
+    borderColor: lineColor,
     borderDash: [6, 3],
     borderWidth: 2,
     pointRadius: 0,
     fill: false,
     tension: 0.3,
-    order: 0
+    order: 1,
+    _mlGenerated: true,
   });
 
   chartInstance.update();
+}
+
+// SLR is a bar chart; projection datasets layer over the bars as lines.
+function addSLRTrendProjection(chartInstance, projYears, forecastKey) {
+  return addTrendProjection(chartInstance, projYears, forecastKey, { asLine: true });
+}
+
+// Apply projections once data is ready
+function applyAllProjections() {
+  if (sstChartInstance)      addTrendProjection(sstChartInstance, 5, 'sst_forecast');
+  if (salinityChartInstance) addTrendProjection(salinityChartInstance, 5, 'salinity_forecast');
+  if (slrChartInstance)      addSLRTrendProjection(slrChartInstance, 10, 'slr_forecast');
 }
 
 // ── ML FEATURE 2: ZONE RISK SCORING MODEL ──────────────────────
@@ -3644,9 +3715,19 @@ const RISK_WEIGHTS = {
   riskFactors:  0.10   // count of high-severity risk pills
 };
 
-function computeRiskScore(zoneData) {
-  // 1. Erosion rate component (0-10): cap at 4 ft/yr = 10
-  const rate = parseFloat(zoneData.erosionRate) || 0;
+function computeRiskScore(zoneData, zoneId) {
+  // 1. Erosion rate component (0-10): cap at 4 ft/yr = 10.
+  // Prefer the CoastSat-derived 7yr rate when zones_ml.json is loaded;
+  // fall back to the hardcoded survey value otherwise.
+  let rate = parseFloat(zoneData.erosionRate) || 0;
+  let rateSource = 'survey';
+  if (zoneId && mlZones && mlZones[zoneId]) {
+    const mlRate = mlZones[zoneId].erosion_rates && mlZones[zoneId].erosion_rates['7yr_avg_ft_per_yr'];
+    if (typeof mlRate === 'number' && isFinite(mlRate)) {
+      rate = Math.abs(mlRate);  // erosion is signed in the ML output
+      rateSource = 'ml';
+    }
+  }
   const rateScore = Math.min(rate / 4.0 * 10, 10);
 
   // 2. Trend component
@@ -3683,10 +3764,12 @@ function computeRiskScore(zoneData) {
     riskFactorScore* RISK_WEIGHTS.riskFactors
   );
 
+  const rateLabel = rateSource === 'ml' ? 'Erosion Rate (ML)' : 'Erosion Rate';
   return {
     total: Math.min(total, 10),
+    rateSource,
     components: {
-      'Erosion Rate':      { score: rateScore,       weight: RISK_WEIGHTS.erosionRate,   weighted: +(rateScore * RISK_WEIGHTS.erosionRate).toFixed(1) },
+      [rateLabel]:         { score: rateScore,       weight: RISK_WEIGHTS.erosionRate,   weighted: +(rateScore * RISK_WEIGHTS.erosionRate).toFixed(1) },
       'Trend':             { score: trendScore,      weight: RISK_WEIGHTS.trend,         weighted: +(trendScore * RISK_WEIGHTS.trend).toFixed(1) },
       'Habitat Stress':    { score: habitatScore,    weight: RISK_WEIGHTS.habitatStress, weighted: +(habitatScore * RISK_WEIGHTS.habitatStress).toFixed(1) },
       'Recent Accel.':     { score: accelScore,      weight: RISK_WEIGHTS.recentAccel,   weighted: +(accelScore * RISK_WEIGHTS.recentAccel).toFixed(1) },
@@ -3695,8 +3778,8 @@ function computeRiskScore(zoneData) {
   };
 }
 
-function buildRiskScoreHTML(zoneData) {
-  const result = computeRiskScore(zoneData);
+function buildRiskScoreHTML(zoneData, zoneId) {
+  const result = computeRiskScore(zoneData, zoneId);
   const score = result.total.toFixed(1);
   const pct = Math.min(result.total / 10 * 100, 100);
   const color = result.total >= 7 ? '#b83232' : result.total >= 4 ? '#d4722a' : '#2e7d5a';
@@ -3733,21 +3816,24 @@ function buildRiskScoreHTML(zoneData) {
     </div>`;
 }
 
-// Recolor polygons by composite risk index instead of erosion-only thresholds
-(function recolorByMLScore() {
+// Recolor polygons by composite risk index instead of erosion-only thresholds.
+// Called once at init, and again whenever zones_ml.json finishes loading so
+// ML-derived erosion rates flow through to the map colors.
+function recolorByMLScore() {
   const mlRiskColor = { High: '#b83232', Medium: '#d4722a', Low: '#2e7d5a' };
   Object.entries(polygonLayers).forEach(function(entry) {
     var id = entry[0], polys = entry[1];
     var d = areaData[id];
     if (!d) return;
-    var score = computeRiskScore(d).total;
+    var score = computeRiskScore(d, id).total;
     var mlLevel = score >= 7 ? 'High' : score >= 4 ? 'Medium' : 'Low';
     var color = mlRiskColor[mlLevel];
     polys.forEach(function(p) {
       if (color) p.setStyle({ color: color, fillColor: color });
     });
   });
-})();
+}
+recolorByMLScore();
 
 // Kick off on load
 fetchLiveData();
