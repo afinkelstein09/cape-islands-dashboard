@@ -2425,10 +2425,33 @@ function closeAllOverlays() {
 }
 
 // ── CHARTS ────────────────────────────────────────────────
+// Legend click handler that mirrors ML Proj. visibility onto the band
+// helper datasets. Used by every chart that inherits cDefaults; the SLR
+// chart's custom legend config inherits the same onClick via spread.
+function _mlAwareLegendOnClick(e, legendItem, legend) {
+  const chart = legend.chart;
+  const idx = legendItem.datasetIndex;
+  if (chart.isDatasetVisible(idx)) {
+    chart.hide(idx);
+  } else {
+    chart.show(idx);
+  }
+  const ds = chart.data.datasets[idx];
+  if (ds && ds.label === 'ML Proj.') {
+    const showing = chart.isDatasetVisible(idx);
+    chart.data.datasets.forEach(function(d, i) {
+      if (d._mlBand) {
+        showing ? chart.show(i) : chart.hide(i);
+      }
+    });
+  }
+}
+
 const cDefaults = {
   responsive: true, maintainAspectRatio: true,
   plugins: {
     legend: {
+      onClick: _mlAwareLegendOnClick,
       labels: {
         font: { size: 10 }, boxWidth: 10, padding: 8,
         filter: function(item, chartData) {
@@ -2463,7 +2486,10 @@ function initCharts() {
         { label: '30-yr Baseline', data: Array(sstLabels.length).fill(53.2), borderColor: '#d4722a', borderDash: [5,4], borderWidth: 1.5, pointRadius: 0, fill: false }
       ]
     },
-    options: cDefaults
+    options: {
+      ...cDefaults,
+      scales: { ...cDefaults.scales, y: { ...cDefaults.scales.y, min: 0, max: 60 } }
+    }
   });
 
   // Sea level — use live NOAA data if already fetched, otherwise fallback
