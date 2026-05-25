@@ -6,15 +6,24 @@ numbers and updating these should happen together until areaData is moved out
 of index.html.
 """
 
-# Ocean series — annual values matching the dashboard's chart fallbacks.
-SST_YEARS = [2005, 2007, 2009, 2011, 2013, 2015, 2017, 2019, 2021, 2023, 2025]
-SST_VALUES_F = [53.4, 53.7, 54.0, 54.2, 54.5, 54.8, 55.1, 55.5, 55.8, 56.1, 56.4]
+# Ocean series — annual values. Linearly interpolated between the dashboard's
+# original biennial anchor points so charts show a value at every year.
+SST_YEARS = list(range(2005, 2026))
+SST_VALUES_F = [
+    53.40, 53.55, 53.70, 53.85, 54.00, 54.10, 54.20, 54.35, 54.50, 54.65,
+    54.80, 54.95, 55.10, 55.30, 55.50, 55.65, 55.80, 55.95, 56.10, 56.25,
+    56.40,
+]
 
 SLR_YEARS = [1993, 1997, 2001, 2005, 2009, 2013, 2017, 2021, 2024]
 SLR_VALUES_IN = [0.0, 0.4, 0.9, 1.4, 1.9, 2.5, 3.2, 3.9, 4.7]
 
-SALINITY_YEARS = [2005, 2007, 2009, 2011, 2013, 2015, 2017, 2019, 2021, 2023, 2025]
-SALINITY_VALUES_PSU = [31.8, 31.7, 31.6, 31.5, 31.4, 31.3, 31.2, 31.0, 30.9, 30.8, 30.7]
+SALINITY_YEARS = list(range(2005, 2026))
+SALINITY_VALUES_PSU = [
+    31.80, 31.75, 31.70, 31.65, 31.60, 31.55, 31.50, 31.45, 31.40, 31.35,
+    31.30, 31.25, 31.20, 31.10, 31.00, 30.95, 30.90, 30.85, 30.80, 30.75,
+    30.70,
+]
 
 # Per-zone erosion (m²/yr or ft/yr depending on zone — the dashboard treats the
 # chartData array uniformly, so we do too). Years are uniform across all zones.
