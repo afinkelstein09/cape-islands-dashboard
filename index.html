@@ -1153,7 +1153,7 @@
       <h3>Composite Risk Index</h3>
       <p>Each zone receives a composite score (0–10) combining weighted erosion rate, trend direction, recent acceleration, habitat stress, and threat severity. The erosion-rate component prefers the CoastSat-derived 7-year rate from <code>zones_ml.json</code> when available, falling back to the published USGS/MCZM survey rate otherwise. The index ranks zones so conservation effort can be prioritized where multiple factors overlap, not just where erosion is fastest.</p>
       <p><strong>Thresholds:</strong> ≥7 = <span style="color:#b83232">High</span>, 4–7 = <span style="color:#d4722a">Medium</span>, &lt;4 = <span style="color:#2e7d5a">Low</span>. Zone colors on the map reflect this score.</p>
-      <p>Ocean data charts (SST, sea level, salinity) include <strong>Gaussian Process regression</strong> trend lines with 5–10 year forward projections, labeled as "ML Proj." in the legend. The shaded purple band shows the 90% confidence envelope — the model's range of plausible values around the projected trend. Outlier years (e.g. partial-year readings) are flagged and excluded from the fit. Predictions are pre-computed in Python (scikit-learn) and loaded as <code>forecasts.json</code>.</p>
+      <p>Ocean data charts (SST, sea level, salinity) include <strong>Gaussian Process regression</strong> trend lines with 5–10 year forward projections, labeled as "ML Proj." in the legend. The shaded purple band shows the 90% confidence envelope — the model's range of plausible values around the projected trend. Outlier years (e.g. partial-year readings) are flagged and excluded from the fit.</p>
     </div>
 
     <div class="method-section">
