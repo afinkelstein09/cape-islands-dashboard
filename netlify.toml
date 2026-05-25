@@ -1,0 +1,18 @@
+# Netlify deploy config.
+# Repo root contains source + pipelines + cloned CoastSat — we only want
+# the public site files in the build output. The command below copies the
+# files that the dashboard actually fetches into ./publish, which Netlify
+# then serves.
+
+[build]
+  publish = "publish"
+  command = """
+    mkdir -p publish && \
+    cp index.html publish/ && \
+    cp forecasts.json publish/ 2>/dev/null || true && \
+    cp zones_ml.json publish/ 2>/dev/null || true
+  """
+
+[build.environment]
+  # Netlify defaults to a more recent Node; pin so builds are reproducible.
+  NODE_VERSION = "20"
