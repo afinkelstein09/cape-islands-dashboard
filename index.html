@@ -537,6 +537,12 @@
       padding: .1rem .4rem; border-radius: 3px; font-size: .6rem;
       font-weight: 700; letter-spacing: .05em;
     }
+    .ml-badge {
+      background: rgba(108,92,231,.22); color: #b5a8ff;
+      padding: .1rem .4rem; border-radius: 3px; font-size: .6rem;
+      font-weight: 700; letter-spacing: .05em;
+      cursor: help;
+    }
     .period-tabs {
       display: flex; gap: .3rem; margin-bottom: .75rem;
     }
@@ -1088,13 +1094,18 @@
       </div>
       <div class="source-card">
         <div class="sname">Google Earth Engine</div>
-        <div class="sdesc">Cloud processing platform used to run Sentinel-2 NDWI analysis across all 19 coastal zones. Averaging composite method with refined polygon boundaries for ocean-facing shoreline calibration. Source of all satellite erosion rates.</div>
+        <div class="sdesc">Cloud processing platform that delivers Sentinel-2 imagery to two pipelines: a CoastSat U-Net for ML-derived shoreline detection (primary) and an NDWI threshold composite (fallback). Source of all satellite erosion rates.</div>
         <a href="https://earthengine.google.com" target="_blank">earthengine.google.com</a>
       </div>
       <div class="source-card">
         <div class="sname">ESA Sentinel-2</div>
-        <div class="sdesc">10-meter multispectral satellite imagery (Green + NIR bands) used for NDWI-based waterline extraction and land-loss detection across 2-, 5-, and 7-year time windows.</div>
+        <div class="sdesc">10-meter multispectral satellite imagery feeding both the CoastSat U-Net classifier and the NDWI fallback. Sept-Oct seasonal window each year, 2018-2024 reference period.</div>
         <a href="https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-2" target="_blank">Copernicus Sentinel-2</a>
+      </div>
+      <div class="source-card">
+        <div class="sname">CoastSat U-Net</div>
+        <div class="sdesc">Open-source deep-learning model (UNSW Water Research Lab) trained on labeled satellite imagery to classify water/land per pixel and trace sub-pixel shoreline polylines. Primary source of ML-flagged erosion rates.</div>
+        <a href="https://github.com/kvos/CoastSat" target="_blank">github.com/kvos/CoastSat</a>
       </div>
       <div class="source-card">
         <div class="sname">USGS CoSMoS / DSAS</div>
@@ -1138,13 +1149,16 @@
 
     <div class="method-section">
       <h3>Satellite Erosion Analysis (Sentinel-2)</h3>
-      <p>Coastal land-change detection uses ESA Sentinel-2 multispectral imagery processed through <strong>Google Earth Engine</strong>. For each zone, a waterline is extracted using the <strong>Normalized Difference Water Index (NDWI)</strong> — a spectral index that separates water from land using the Green and Near-Infrared bands. Land loss is calculated as the area (m²) that transitioned from land to water between the start and end composite of each time window.</p>
-      <p>Three windows are computed per zone: <strong>2-year</strong> (recent trend), <strong>5-year</strong> (medium-term), and <strong>7-year</strong> (primary reference, 2018–2025). The 7-year rate is used for all ft/yr calculations shown in zone panels.</p>
+      <p>Coastal land-change detection uses ESA Sentinel-2 multispectral imagery processed through <strong>Google Earth Engine</strong>. Two methods are used depending on data availability:</p>
+      <p><strong>Primary (when available):</strong> <strong>CoastSat U-Net</strong> — a deep-learning model trained on labeled satellite imagery that classifies water/land per pixel and extracts a sub-pixel shoreline polyline for each scene. Robust to wet sand, cliff shadows, seaweed, and breaking waves where simple thresholds fail. Zones using this method show an <span class="ml-badge" style="cursor:default">ML</span> badge.</p>
+      <p><strong>Fallback:</strong> <strong>Normalized Difference Water Index (NDWI)</strong> — a spectral threshold on Green and Near-Infrared bands. Faster, simpler, but loses accuracy on edge cases. Used where ML output isn't yet available.</p>
+      <p>Imagery is restricted to a <strong>September–October seasonal window</strong> each year to compare beaches in their late-summer profile (after rebuilding, before nor'easter season), eliminating seasonal-noise from the change-rate signal. Per-year mean shoreline positions feed a linear regression to produce 2-, 3-, 5-, and 7-year erosion rates.</p>
       <p>Converting area loss to linear retreat requires dividing by each zone's calibrated shoreline length, tuned to match published USGS survey rates. Tidal-flat zones (Barnstable, Dennis &amp; Brewster) are reported as <strong>ac/yr</strong> where a reliable shoreline length cannot be defined.</p>
       <div>
-        <span class="method-tag">NDWI = (Green − NIR) / (Green + NIR)</span>
+        <span class="method-tag">CoastSat U-Net (primary)</span>
+        <span class="method-tag">NDWI = (Green − NIR) / (Green + NIR) (fallback)</span>
         <span class="method-tag">10m resolution</span>
-        <span class="method-tag">Cloud-filtered composites</span>
+        <span class="method-tag">Sept–Oct window</span>
         <span class="method-tag">ft/yr = (annual m²/yr ÷ shoreline m) × 3.28084</span>
       </div>
     </div>
@@ -1821,6 +1835,12 @@ let mlZones = null;
     const body = await resp.json();
     mlZones = body && body.zones ? body.zones : null;
     if (typeof recolorByMLScore === 'function') recolorByMLScore();
+    // If a zone panel is open, fully re-render it so the ML badge appears
+    // alongside the now-updated risk score.
+    if (typeof openAreaPanel === 'function' && currentAreaId
+        && document.getElementById('area-panel')?.classList.contains('open')) {
+      openAreaPanel(currentAreaId);
+    }
   } catch (_) {
     // zones_ml.json not deployed yet — fall back to areaData.erosionRate
   }
@@ -2120,15 +2140,22 @@ function buildSatSection(id, d) {
 
   const satMetrics = buildSatMetrics(id, activePeriod);
   const yearLabel  = { '2yr':'2023–2025', '5yr':'2020–2025', '7yr':'2018–2025' };
+  const hasML = !!(mlZones && mlZones[id]);
+  const mlBadge = hasML
+    ? ` <span class="ml-badge" title="Erosion rate for this zone is derived from a CoastSat U-Net trained on Sentinel-2 imagery, not from a simple NDWI threshold.">ML</span>`
+    : '';
+  const sourceLine = hasML
+    ? `Comparing ${yearLabel[activePeriod]} · Source: ESA Sentinel-2 + CoastSat U-Net via Google Earth Engine`
+    : `Comparing ${yearLabel[activePeriod]} · Source: ESA Sentinel-2 via Google Earth Engine`;
 
   return `
     <div class="sat-section" id="sat-section-${id}">
       <div class="sat-header">
-        Satellite Data <span class="sat-badge">SENTINEL-2</span>
+        Satellite Data <span class="sat-badge">SENTINEL-2</span>${mlBadge}
       </div>
       <div class="period-tabs">${periodTabs}</div>
       <div id="sat-metrics-${id}">${satMetrics}</div>
-      <div id="sat-period-label-${id}" class="sat-note">Comparing ${yearLabel[activePeriod]} · Source: ESA Sentinel-2 via Google Earth Engine</div>
+      <div id="sat-period-label-${id}" class="sat-note">${sourceLine}</div>
       <div id="sat-bars-${id}">${buildSatBars(id)}</div>
     </div>
   `;
