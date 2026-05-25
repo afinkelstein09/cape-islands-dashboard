@@ -1178,27 +1178,7 @@
 
     <div class="method-section">
       <h3>3 · Probabilistic forecasts (Gaussian Process)</h3>
-      <p>The dashed "ML Proj." line on every ocean chart comes from <strong>Gaussian Process regression</strong> — a real machine-learning model fit to the historical NOAA series. The shaded purple band shows the <strong>90% confidence envelope</strong> — the model's range of plausible values around the projected trend, widening into the future as uncertainty grows.</p>
-      <svg viewBox="0 0 320 80" width="100%" style="max-width:320px;display:block;margin:.4rem 0 .8rem;background:rgba(0,0,0,.02);border-radius:4px;padding:4px">
-        <!-- Confidence band (widens to the right past 'today') -->
-        <path d="M 25,40 L 150,36 L 295,15 L 295,55 L 150,46 L 25,46 Z"
-              fill="rgba(108,92,231,0.30)"
-              stroke="rgba(108,92,231,0.70)" stroke-width="1" stroke-dasharray="3,3"/>
-        <!-- Mean dashed projection line -->
-        <path d="M 25,43 L 150,41 L 295,35"
-              fill="none" stroke="#6c5ce7" stroke-width="2" stroke-dasharray="6,3"/>
-        <!-- Historical data points (cyan, like SST observed) -->
-        <circle cx="40"  cy="50" r="2.5" fill="#1a8a9a"/>
-        <circle cx="65"  cy="45" r="2.5" fill="#1a8a9a"/>
-        <circle cx="90"  cy="48" r="2.5" fill="#1a8a9a"/>
-        <circle cx="115" cy="42" r="2.5" fill="#1a8a9a"/>
-        <circle cx="140" cy="44" r="2.5" fill="#1a8a9a"/>
-        <!-- 'today' divider -->
-        <line x1="150" y1="8" x2="150" y2="65" stroke="rgba(0,0,0,.25)" stroke-width="1" stroke-dasharray="2,2"/>
-        <text x="150" y="76" text-anchor="middle" font-size="8" fill="rgba(0,0,0,.5)">today</text>
-        <text x="80"  y="76" text-anchor="middle" font-size="8" fill="rgba(0,0,0,.5)">past · NOAA</text>
-        <text x="225" y="76" text-anchor="middle" font-size="8" fill="rgba(0,0,0,.5)">future · GP forecast</text>
-      </svg>
+      <p>The dashed "ML Proj." line on every ocean chart comes from <strong>Gaussian Process regression</strong> — a real machine-learning model fit to the historical NOAA series. The shaded purple band shows the <strong>90% confidence envelope</strong> — the model's range of plausible values around the projected trend, widening into the future as uncertainty grows. Charts forecasted this way (Sea Surface Temperature, Sea Level Rise, Salinity) show an <span class="ml-badge" style="cursor:default">ML</span> badge next to their title.</p>
       <p>Outlier years (e.g. partial-year readings or sensor anomalies) are automatically flagged via a residual-based detector and excluded from the fit, so a bad reading doesn't skew the projection.</p>
       <div>
         <span class="method-tag">GP kernel: ConstantKernel × RBF + WhiteNoise</span>
