@@ -1178,7 +1178,7 @@
 
     <div class="method-section">
       <h3>3 · Probabilistic forecasts (Gaussian Process)</h3>
-      <p>The dashed "ML Proj." line on every ocean chart comes from <strong>Gaussian Process regression</strong> — a real machine-learning model fit to the historical NOAA series in Python (scikit-learn). The shaded purple band shows the <strong>90% confidence envelope</strong> — the model's range of plausible values around the projected trend, widening into the future as uncertainty grows.</p>
+      <p>The dashed "ML Proj." line on every ocean chart comes from <strong>Gaussian Process regression</strong> — a real machine-learning model fit to the historical NOAA series. The shaded purple band shows the <strong>90% confidence envelope</strong> — the model's range of plausible values around the projected trend, widening into the future as uncertainty grows.</p>
       <p>Outlier years (e.g. partial-year readings or sensor anomalies) are automatically flagged via a residual-based detector and excluded from the fit, so a bad reading doesn't skew the projection.</p>
       <div>
         <span class="method-tag">GP kernel: ConstantKernel × RBF + WhiteNoise</span>
@@ -1199,7 +1199,7 @@
 
     <div class="method-section">
       <h3>Citing This Dashboard</h3>
-      <p style="font-size:.78rem;color:var(--muted);background:var(--bg);padding:.65rem .85rem;border-radius:6px;line-height:1.6">Cape and Islands Conservation Dashboard (2026). Coastal erosion and habitat monitoring for Martha's Vineyard, Nantucket, and Cape Cod. Satellite analysis: ESA Sentinel-2 + CoastSat U-Net via Google Earth Engine. Ocean data: NOAA CO-OPS Station 8447930 (Woods Hole, MA). Forecasts: Gaussian Process regression (scikit-learn). Survey rates: USGS National Shoreline Change Database. Coastal management data: MA Coastal Zone Management.</p>
+      <p style="font-size:.78rem;color:var(--muted);background:var(--bg);padding:.65rem .85rem;border-radius:6px;line-height:1.6">Cape and Islands Conservation Dashboard (2026). Coastal erosion and habitat monitoring for Martha's Vineyard, Nantucket, and Cape Cod. Satellite analysis: ESA Sentinel-2 + CoastSat U-Net via Google Earth Engine. Ocean data: NOAA CO-OPS Station 8447930 (Woods Hole, MA). Forecasts: Gaussian Process regression. Survey rates: USGS National Shoreline Change Database. Coastal management data: MA Coastal Zone Management.</p>
     </div>
 
   </div>
