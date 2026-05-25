@@ -3585,7 +3585,16 @@ function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
   const asLine = opts.asLine === true;  // true for SLR (bar chart overlay)
 
   const labels = chartInstance.data.labels;
-  const values = chartInstance.data.datasets[0].data;
+  const rawValues = chartInstance.data.datasets[0].data;
+  // Replace partial-year readings (current year, only a few months of data)
+  // with nulls so the chart doesn't compare year-to-date against completed
+  // annual averages. The drop to ~30°F on SST during winter months was this.
+  const _nowYear = new Date().getFullYear();
+  const values = rawValues.map((v, i) => {
+    const yr = parseInt(labels[i]);
+    return (Number.isFinite(yr) && yr >= _nowYear) ? null : v;
+  });
+  chartInstance.data.datasets[0].data = values;
   if (!labels || labels.length < 4) return;
 
   const gp = mlForecasts && forecastKey ? mlForecasts[forecastKey] : null;
@@ -3641,7 +3650,8 @@ function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
     }
   }
 
-  const bandColor = 'rgba(108,92,231,0.16)';
+  const bandColor = 'rgba(108,92,231,0.30)';
+  const bandEdge  = 'rgba(108,92,231,0.55)';
   const lineColor = '#6c5ce7';
 
   if (lowerLine && upperLine) {
@@ -3649,9 +3659,10 @@ function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
       label: '_band_lower',
       data: lowerLine,
       type: asLine ? 'line' : undefined,
-      borderColor: 'transparent',
+      borderColor: bandEdge,
+      borderDash: [3, 3],
       backgroundColor: bandColor,
-      borderWidth: 0,
+      borderWidth: 1,
       pointRadius: 0,
       fill: false,
       tension: 0.3,
@@ -3663,9 +3674,10 @@ function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
       label: '_band_upper',
       data: upperLine,
       type: asLine ? 'line' : undefined,
-      borderColor: 'transparent',
+      borderColor: bandEdge,
+      borderDash: [3, 3],
       backgroundColor: bandColor,
-      borderWidth: 0,
+      borderWidth: 1,
       pointRadius: 0,
       fill: '-1',  // fill toward the previous dataset (lower band)
       tension: 0.3,
