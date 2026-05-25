@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.python-version
+
+# Pipeline artifacts
+probabilistic_forecasting/cache/
+coastsat_segmentation/cache/
+coastsat_segmentation/imagery/
+coastsat_segmentation/models/
+*.tif
+*.tiff
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets
+.env
+*.pem
+gee-service-account*.json
