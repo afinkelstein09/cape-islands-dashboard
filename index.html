@@ -3650,19 +3650,19 @@ function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
     }
   }
 
-  const bandColor = 'rgba(108,92,231,0.30)';
-  const bandEdge  = 'rgba(108,92,231,0.55)';
+  const bandColor = 'rgba(108,92,231,0.50)';
+  const bandEdge  = 'rgba(108,92,231,0.90)';
   const lineColor = '#6c5ce7';
 
   if (lowerLine && upperLine) {
     chartInstance.data.datasets.push({
       label: '_band_lower',
       data: lowerLine,
-      type: asLine ? 'line' : undefined,
+      type: 'line',  // explicit so a bar-typed parent chart still renders this as a line
       borderColor: bandEdge,
-      borderDash: [3, 3],
+      borderDash: [4, 4],
       backgroundColor: bandColor,
-      borderWidth: 1,
+      borderWidth: 2,
       pointRadius: 0,
       fill: false,
       tension: 0.3,
@@ -3673,11 +3673,11 @@ function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
     chartInstance.data.datasets.push({
       label: '_band_upper',
       data: upperLine,
-      type: asLine ? 'line' : undefined,
+      type: 'line',
       borderColor: bandEdge,
-      borderDash: [3, 3],
+      borderDash: [4, 4],
       backgroundColor: bandColor,
-      borderWidth: 1,
+      borderWidth: 2,
       pointRadius: 0,
       fill: '-1',  // fill toward the previous dataset (lower band)
       tension: 0.3,
@@ -3690,7 +3690,7 @@ function addTrendProjection(chartInstance, projYears, forecastKey, opts) {
   chartInstance.data.datasets.push({
     label: 'ML Proj.',
     data: meanLine,
-    type: asLine ? 'line' : undefined,
+    type: 'line',
     borderColor: lineColor,
     borderDash: [6, 3],
     borderWidth: 2,
