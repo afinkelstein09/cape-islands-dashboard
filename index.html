@@ -1156,7 +1156,7 @@
     <div class="method-section">
       <h3>1 · Satellite shoreline detection</h3>
       <p>ESA Sentinel-2 imagery (10 m resolution) is pulled through Google Earth Engine for each of the 19 zones, restricted to a <strong>September–October window</strong> each year so beaches are compared in their late-summer profile (after rebuilding, before nor'easters). This eliminates seasonal noise from the change signal.</p>
-      <p><strong>Primary method — CoastSat U-Net:</strong> a deep-learning model trained on labeled satellite imagery that classifies water/land per pixel and extracts a sub-pixel shoreline polyline for each scene. Robust to wet sand, cliff shadows, seaweed, and breaking waves where simple thresholds fail. Zones using this method show an <span class="ml-badge" style="cursor:default">ML</span> badge.</p>
+      <p><strong>Primary method — CoastSat U-Net:</strong> a deep-learning model trained on labeled satellite imagery that classifies water/land per pixel and extracts a sub-pixel shoreline polyline for each scene. Robust to wet sand, cliff shadows, seaweed, and breaking waves where simple thresholds fail.</p>
       <p><strong>Fallback — NDWI threshold:</strong> a spectral index on the Green and Near-Infrared bands. Faster, simpler, less accurate on edge cases. Used where ML output isn't yet available.</p>
       <p>Per-year shoreline positions feed a linear regression to produce 2-, 3-, 5-, and 7-year erosion rates. For tidal-flat zones (Barnstable, Dennis &amp; Brewster) where a stable shoreline length can't be defined, rates are reported in <strong>ac/yr</strong> instead of <strong>ft/yr</strong>.</p>
       <div>
