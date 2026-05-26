@@ -723,14 +723,14 @@
     </div>
     <div class="intro-modal-body">
       <p class="intro-para">
-        Built on NOAA, USGS, and NASA data, this platform combines satellite imagery, tide records, vegetation indices, and composite risk scoring to track how our coastline &mdash; and the salt marshes, dunes, and barrier beaches it sustains &mdash; is changing over time. Here's how to explore it:
+        Built on NOAA, USGS, and NASA data, this platform combines Sentinel-2 satellite imagery, tide-gauge records, vegetation indices, and composite risk scoring to track how our coastline &mdash; and the salt marshes, dunes, and barrier beaches it sustains &mdash; is changing over time. Two machine-learning layers power the analysis: a deep-learning U-Net for shoreline detection and Gaussian Process regression for ocean forecasts. Here's how to explore it:
       </p>
       <div class="intro-step-list">
         <div class="intro-step">
           <div class="intro-step-num">1</div>
           <div class="intro-step-content">
             <h4>Click a zone on the map</h4>
-            <p>Each colored polygon is a coastal zone ranked by its composite risk index. Click to see the score breakdown, zone analysis, erosion rates, habitat status, and conservation contacts.</p>
+            <p>Each colored polygon is a coastal zone ranked by its composite risk index. Click to see the score breakdown, zone analysis, erosion rates, habitat status, and conservation contacts. A purple <span class="ml-badge" style="cursor:default">ML</span> badge marks zones using deep-learning shoreline detection.</p>
           </div>
         </div>
         <div class="intro-step">
@@ -751,7 +751,7 @@
           <div class="intro-step-num">4</div>
           <div class="intro-step-content">
             <h4>Check the Rankings &amp; Data tabs</h4>
-            <p>The top nav has tabs for full zone rankings, live ocean data with trend projections, methodology, and data sources.</p>
+            <p>The top nav has tabs for full zone rankings, live NOAA ocean data with ML-driven "ML Proj." forecasts and 90% confidence bands, methodology details, and data sources.</p>
           </div>
         </div>
       </div>
@@ -1210,7 +1210,7 @@
 
 // ── INTRO MODAL (first-visit walkthrough) ──────────────
 (function initIntroModal() {
-  const STORAGE_KEY = 'cic_intro_seen_v1';
+  const STORAGE_KEY = 'cic_intro_seen_v2';
   const overlay = document.getElementById('intro-modal-overlay');
   if (!overlay) return;
 
@@ -2167,7 +2167,9 @@ function buildSatSection(id, d) {
 
   const satMetrics = buildSatMetrics(id, activePeriod);
   const yearLabel  = { '2yr':'2023–2025', '5yr':'2020–2025', '7yr':'2018–2025' };
-  const hasML = !!(mlZones && mlZones[id]);
+  const hasML = !!(mlZones && mlZones[id]
+    && mlZones[id].erosion_rates
+    && typeof mlZones[id].erosion_rates['7yr_avg_ft_per_yr'] === 'number');
   const mlBadge = hasML
     ? ` <span class="ml-badge" title="Erosion rate for this zone is derived from a CoastSat U-Net trained on Sentinel-2 imagery, not from a simple NDWI threshold.">ML</span>`
     : '';
