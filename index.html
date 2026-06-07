@@ -1861,6 +1861,7 @@ let mlZones = null;
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const body = await resp.json();
     mlZones = body && body.zones ? body.zones : null;
+    if (typeof calibrateV2Thresholds === 'function') calibrateV2Thresholds();
     if (typeof recolorByMLScore === 'function') recolorByMLScore();
     // If a zone panel is open, fully re-render it so the ML badge appears
     // alongside the now-updated risk score.
@@ -4008,10 +4009,24 @@ function computeRiskScoreV2(zoneData, zoneId) {
 }
 
 // v2 uses a geometric mean which naturally compresses scores into a
-// narrower range than v1's weighted sum. Thresholds calibrated so a
-// typical Cape & Islands zone distribution spreads across all three bands.
-const V2_HIGH_THRESHOLD = 6.0;
-const V2_MED_THRESHOLD  = 4.0;
+// narrower range than v1's weighted sum. We use quantile-based thresholds
+// so the visual breakdown always shows Lower / Mid / Higher relative to
+// the actual distribution of this region's zones — bottom third green,
+// middle third orange, top third red. Recomputed when areaData / mlZones
+// change.
+let V2_HIGH_THRESHOLD = 6.0;
+let V2_MED_THRESHOLD  = 4.0;
+
+function calibrateV2Thresholds() {
+  if (typeof areaData !== 'object') return;
+  const scores = Object.keys(areaData)
+    .map(id => computeRiskScoreV2(areaData[id], id).total)
+    .filter(n => isFinite(n))
+    .sort((a, b) => a - b);
+  if (scores.length < 3) return;
+  V2_MED_THRESHOLD  = scores[Math.floor(scores.length / 3)];
+  V2_HIGH_THRESHOLD = scores[Math.floor(scores.length * 2 / 3)];
+}
 
 function buildRiskScoreV2HTML(zoneData, zoneId) {
   const result = computeRiskScoreV2(zoneData, zoneId);
@@ -4079,6 +4094,7 @@ function recolorByMLScore() {
     });
   });
 }
+calibrateV2Thresholds();
 recolorByMLScore();
 
 // Kick off on load
