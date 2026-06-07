@@ -1539,7 +1539,7 @@ function styleZone(id, fillOpacity, weight) {
   let color = riskColor[d?.erosionRisk];
   if (d && typeof computeRiskScore === 'function') {
     try {
-      const sc = computeRiskScore(d, id).total;
+      const sc = computeRiskScoreV2(d, id).total;
       const ml = sc >= 7 ? 'High' : sc >= 4 ? 'Medium' : 'Low';
       color = riskColor[ml];
     } catch(e) {}
@@ -2055,9 +2055,7 @@ function openAreaPanel(id) {
   })();
 
   let html = `
-    ${buildRiskScoreHTML(d, id)}
-    <!-- v2 demo wired but hidden on live: uncomment to preview locally -->
-    <!-- ${buildRiskScoreV2HTML(d, id)} -->
+    ${buildRiskScoreV2HTML(d, id)}
 
     ${_analysisSnippet}
 
@@ -3069,7 +3067,7 @@ function generateAreaReport() {
   : '<tr><td colspan="4" style="color:#aaa;font-style:italic">Satellite data not available for this zone</td></tr>';
 
   // Composite Risk Index for report
-  const _mlResult = computeRiskScore(d, currentAreaId);
+  const _mlResult = computeRiskScoreV2(d, currentAreaId);
   const _mlScore = _mlResult.total.toFixed(1);
   const _mlLabel = _mlResult.total >= 7 ? 'High' : _mlResult.total >= 4 ? 'Medium' : 'Low';
   const _mlColor = _mlResult.total >= 7 ? '#b83232' : _mlResult.total >= 4 ? '#d4722a' : '#2e7d5a';
@@ -3221,9 +3219,10 @@ function generateAreaReport() {
       <div style="height:6px;background:#eef2f5;border-radius:3px;overflow:hidden;margin-bottom:8px;">
         <div style="height:100%;width:${Math.min(_mlResult.total/10*100,100)}%;background:linear-gradient(90deg,#2e7d5a,#d4722a,#b83232);border-radius:3px;"></div>
       </div>
-      ${Object.entries(_mlResult.components).map(function(e) {
-        var bPct = Math.min(e[1].score / 10 * 100, 100);
-        return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;"><span style="font-size:8px;color:#5a6f7e;width:65px;flex-shrink:0;">' + e[0] + '</span><div style="flex:1;height:5px;background:#eef2f5;border-radius:2px;overflow:hidden;"><div style="height:100%;width:' + bPct + '%;background:' + _mlColor + ';border-radius:2px;"></div></div><span style="font-size:7.5px;font-weight:700;color:#1a2b38;width:18px;text-align:right;">' + e[1].weighted + '</span></div>';
+      ${[['Hazard','hazard'],['Exposure','exposure'],['Vulnerability','vulnerability']].map(function(e) {
+        var dim = _mlResult[e[1]];
+        var bPct = Math.min(dim.score / 10 * 100, 100);
+        return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;"><span style="font-size:8px;color:#5a6f7e;width:65px;flex-shrink:0;">' + e[0] + '</span><div style="flex:1;height:5px;background:#eef2f5;border-radius:2px;overflow:hidden;"><div style="height:100%;width:' + bPct + '%;background:' + _mlColor + ';border-radius:2px;"></div></div><span style="font-size:7.5px;font-weight:700;color:#1a2b38;width:18px;text-align:right;">' + dim.score.toFixed(1) + '</span></div>';
       }).join('')}
     </div>
 
@@ -4039,8 +4038,7 @@ function buildRiskScoreV2HTML(zoneData, zoneId) {
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.6rem;">
         <div>
           <div>
-            <span style="font-size:.62rem;font-weight:700;color:#2eb8cc;text-transform:uppercase;letter-spacing:.05em;">Composite Risk Index v2</span>
-            <span style="font-size:.55rem;font-weight:700;color:#fff;background:#1a8a9a;padding:.05rem .3rem;border-radius:3px;margin-left:.3rem;letter-spacing:.05em;vertical-align:middle;">BETA</span>
+            <span style="font-size:.62rem;font-weight:700;color:#2eb8cc;text-transform:uppercase;letter-spacing:.05em;">Composite Risk Index</span>
           </div>
           <div style="font-size:.6rem;color:var(--muted);margin-top:.1rem;">Hazard × Exposure × Vulnerability</div>
         </div>
@@ -4067,7 +4065,7 @@ function recolorByMLScore() {
     var id = entry[0], polys = entry[1];
     var d = areaData[id];
     if (!d) return;
-    var score = computeRiskScore(d, id).total;
+    var score = computeRiskScoreV2(d, id).total;
     var mlLevel = score >= 7 ? 'High' : score >= 4 ? 'Medium' : 'Low';
     var color = mlRiskColor[mlLevel];
     polys.forEach(function(p) {
