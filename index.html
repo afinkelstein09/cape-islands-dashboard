@@ -2056,7 +2056,9 @@ function openAreaPanel(id) {
 
   let html = `
     ${buildRiskScoreHTML(d, id)}
-    ${buildRiskScoreV2HTML(d, id)}
+    <!-- v2 demo wired but hidden on live: uncomment to preview locally -->
+    <!-- ${buildRiskScoreV2HTML(d, id)} -->
+
     ${_analysisSnippet}
 
     <div class="panel-divider"></div>
