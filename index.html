@@ -2056,6 +2056,7 @@ function openAreaPanel(id) {
 
   let html = `
     ${buildRiskScoreHTML(d, id)}
+    ${buildRiskScoreV2HTML(d, id)}
     ${_analysisSnippet}
 
     <div class="panel-divider"></div>
@@ -3909,6 +3910,149 @@ function buildRiskScoreHTML(zoneData, zoneId) {
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2e7d5a,#d4722a,#b83232);border-radius:4px;transition:width .5s;"></div>
       </div>
       ${bars}
+    </div>`;
+}
+
+// ── COMPOSITE RISK INDEX v2 (BETA) ────────────────────────────────────
+// Hazard × Exposure × Vulnerability framework — geometric mean of three
+// sub-scores so that any single dimension being zero pulls the composite
+// down (a beach with no people/buildings in harm's way has low risk no
+// matter how fast it's eroding). The per-zone meta below is hand-estimated
+// for the demo — should be replaced with real GIS-derived data later.
+
+const ZONE_RISK_META = {
+  mv_gayhead:        { beachType: 'cliff',   exposure: 'ocean',     buildingDensity: 'low',    armoring: 'none' },
+  mv_southbeach:     { beachType: 'sandy',   exposure: 'ocean',     buildingDensity: 'high',   armoring: 'partial' },
+  mv_longpoint:      { beachType: 'barrier', exposure: 'ocean',     buildingDensity: 'low',    armoring: 'none' },
+  outercape:         { beachType: 'barrier', exposure: 'ocean',     buildingDensity: 'low',    armoring: 'partial' },
+  nauset:            { beachType: 'sandy',   exposure: 'ocean',     buildingDensity: 'medium', armoring: 'partial' },
+  buzzardsbay:       { beachType: 'mixed',   exposure: 'sheltered', buildingDensity: 'medium', armoring: 'partial' },
+  nantucket:         { beachType: 'sandy',   exposure: 'ocean',     buildingDensity: 'medium', armoring: 'partial' },
+  wellfleet:         { beachType: 'marsh',   exposure: 'sheltered', buildingDensity: 'medium', armoring: 'partial' },
+  mv_northshore:     { beachType: 'mixed',   exposure: 'sheltered', buildingDensity: 'high',   armoring: 'heavy'   },
+  mv_chappaquiddick: { beachType: 'sandy',   exposure: 'ocean',     buildingDensity: 'low',    armoring: 'none' },
+  mv_menemsha:       { beachType: 'sandy',   exposure: 'mixed',     buildingDensity: 'medium', armoring: 'partial' },
+  chatham:           { beachType: 'barrier', exposure: 'ocean',     buildingDensity: 'high',   armoring: 'heavy'   },
+  dennis_brewster:   { beachType: 'marsh',   exposure: 'sheltered', buildingDensity: 'medium', armoring: 'partial' },
+  barnstable:        { beachType: 'mixed',   exposure: 'sheltered', buildingDensity: 'medium', armoring: 'heavy'   },
+  falmouth:          { beachType: 'sandy',   exposure: 'mixed',     buildingDensity: 'high',   armoring: 'heavy'   },
+  bourne:            { beachType: 'mixed',   exposure: 'sheltered', buildingDensity: 'medium', armoring: 'partial' },
+  elizabeth:         { beachType: 'mixed',   exposure: 'ocean',     buildingDensity: 'low',    armoring: 'none' },
+  nantucket_north:   { beachType: 'mixed',   exposure: 'sheltered', buildingDensity: 'high',   armoring: 'partial' },
+  great_point:       { beachType: 'barrier', exposure: 'ocean',     buildingDensity: 'low',    armoring: 'none' },
+};
+
+function computeRiskScoreV2(zoneData, zoneId) {
+  const meta = ZONE_RISK_META[zoneId] || {
+    beachType: 'sandy', exposure: 'mixed', buildingDensity: 'medium', armoring: 'partial'
+  };
+
+  // ── HAZARD: how dangerous is the physical process here? ──
+  let rate = parseFloat(zoneData.erosionRate) || 0;
+  if (zoneId && mlZones && mlZones[zoneId] && mlZones[zoneId].erosion_rates) {
+    const mlRate = mlZones[zoneId].erosion_rates['7yr_avg_ft_per_yr'];
+    if (typeof mlRate === 'number' && isFinite(mlRate)) rate = Math.abs(mlRate);
+  }
+  const erosionScore = Math.min(rate / 4.0 * 10, 10);
+  const trendMap = { 'Accelerating': 9, 'Steady': 5, 'Decelerating': 2 };
+  const trendScore = trendMap[zoneData.erosionTrend] || 5;
+  const oceanExposureScore = { ocean: 9, mixed: 6, sheltered: 3 }[meta.exposure];
+  const hazardScore = (erosionScore + trendScore + oceanExposureScore) / 3;
+
+  // ── EXPOSURE: what's in harm's way? ──
+  const buildingScore = { low: 2, medium: 5, high: 8.5 }[meta.buildingDensity];
+  const habitats = zoneData.habitats || [];
+  const habitatCoverageScore = Math.min(habitats.length * 1.5 + 2, 10);
+  const exposureScore = (buildingScore + habitatCoverageScore + 5) / 3;  // +5 = baseline protected-land value
+
+  // ── VULNERABILITY: how easily does damage propagate? ──
+  // Beach type — cliffs and marshes don't recover; sandy beaches rebuild; barriers roll back.
+  const beachTypeScore = { cliff: 9, marsh: 8, barrier: 6, mixed: 6, sandy: 4 }[meta.beachType];
+  // Armoring — heavy armoring lowers immediate V but shifts erosion to neighbors (not modeled here).
+  const armoringScore = { none: 7, partial: 5, heavy: 3 }[meta.armoring];
+  const stressed = habitats.filter(h => h.status !== 'good').length;
+  const habitatStressScore = habitats.length > 0 ? (stressed / habitats.length) * 10 : 5;
+  const vulnerabilityScore = (beachTypeScore + armoringScore + habitatStressScore) / 3;
+
+  // ── COMPOSITE: geometric mean (cube root of product) ──
+  const total = Math.cbrt(hazardScore * exposureScore * vulnerabilityScore);
+
+  return {
+    total: Math.min(total, 10),
+    hazard: {
+      score: hazardScore,
+      components: {
+        'Erosion Rate':   erosionScore,
+        'Trend':          trendScore,
+        'Ocean Exposure': oceanExposureScore,
+      },
+    },
+    exposure: {
+      score: exposureScore,
+      components: {
+        'Building Density': buildingScore,
+        'Habitat Coverage': habitatCoverageScore,
+        'Protected Lands':  5,
+      },
+    },
+    vulnerability: {
+      score: vulnerabilityScore,
+      components: {
+        'Beach Type':     beachTypeScore,
+        'Armoring (inv)': armoringScore,
+        'Habitat Stress': habitatStressScore,
+      },
+    },
+  };
+}
+
+function buildRiskScoreV2HTML(zoneData, zoneId) {
+  const result = computeRiskScoreV2(zoneData, zoneId);
+  const score = result.total.toFixed(1);
+  const pct = Math.min(result.total / 10 * 100, 100);
+  const color = result.total >= 7 ? '#b83232' : result.total >= 4 ? '#d4722a' : '#2e7d5a';
+  const riskLabel = result.total >= 7 ? 'High' : result.total >= 4 ? 'Medium' : 'Low';
+
+  const dim = (name, data, dimColor) => {
+    const dimPct = Math.min(data.score / 10 * 100, 100);
+    let subComps = '';
+    for (const [n, v] of Object.entries(data.components)) {
+      subComps += `<div style="display:flex;justify-content:space-between;font-size:.58rem;color:var(--muted);padding:0 0 .08rem 4px;"><span>${n}</span><span>${v.toFixed(1)}</span></div>`;
+    }
+    return `
+      <div style="margin-bottom:.55rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.18rem;">
+          <span style="font-size:.66rem;font-weight:700;color:${dimColor};text-transform:uppercase;letter-spacing:.05em;">${name}</span>
+          <span style="font-size:.7rem;font-weight:700;color:var(--text);">${data.score.toFixed(1)}</span>
+        </div>
+        <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:.2rem;">
+          <div style="height:100%;width:${dimPct}%;background:${dimColor};border-radius:3px;"></div>
+        </div>
+        ${subComps}
+      </div>`;
+  };
+
+  return `
+    <div style="background:rgba(46,184,204,.05);border:1px solid rgba(46,184,204,.20);border-radius:8px;padding:.8rem;margin-top:.55rem;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.6rem;">
+        <div>
+          <div>
+            <span style="font-size:.62rem;font-weight:700;color:#2eb8cc;text-transform:uppercase;letter-spacing:.05em;">Composite Risk Index v2</span>
+            <span style="font-size:.55rem;font-weight:700;color:#fff;background:#1a8a9a;padding:.05rem .3rem;border-radius:3px;margin-left:.3rem;letter-spacing:.05em;vertical-align:middle;">BETA</span>
+          </div>
+          <div style="font-size:.6rem;color:var(--muted);margin-top:.1rem;">Hazard × Exposure × Vulnerability</div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:.3rem;">
+          <span style="font-size:1.3rem;font-weight:800;color:${color};">${score}</span>
+          <span style="font-size:.7rem;font-weight:600;color:${color};">/10 · ${riskLabel}</span>
+        </div>
+      </div>
+      <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:.9rem;">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#2e7d5a,#d4722a,#b83232);border-radius:4px;"></div>
+      </div>
+      ${dim('Hazard', result.hazard, '#b83232')}
+      ${dim('Exposure', result.exposure, '#d4722a')}
+      ${dim('Vulnerability', result.vulnerability, '#6c5ce7')}
     </div>`;
 }
 
