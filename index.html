@@ -1540,7 +1540,7 @@ function styleZone(id, fillOpacity, weight) {
   if (d && typeof computeRiskScore === 'function') {
     try {
       const sc = computeRiskScoreV2(d, id).total;
-      const ml = sc >= 7 ? 'High' : sc >= 4 ? 'Medium' : 'Low';
+      const ml = sc >= V2_HIGH_THRESHOLD ? 'High' : sc >= V2_MED_THRESHOLD ? 'Medium' : 'Low';
       color = riskColor[ml];
     } catch(e) {}
   }
@@ -3069,8 +3069,8 @@ function generateAreaReport() {
   // Composite Risk Index for report
   const _mlResult = computeRiskScoreV2(d, currentAreaId);
   const _mlScore = _mlResult.total.toFixed(1);
-  const _mlLabel = _mlResult.total >= 7 ? 'High' : _mlResult.total >= 4 ? 'Medium' : 'Low';
-  const _mlColor = _mlResult.total >= 7 ? '#b83232' : _mlResult.total >= 4 ? '#d4722a' : '#2e7d5a';
+  const _mlLabel = _mlResult.total >= V2_HIGH_THRESHOLD ? 'High' : _mlResult.total >= V2_MED_THRESHOLD ? 'Medium' : 'Low';
+  const _mlColor = _mlResult.total >= V2_HIGH_THRESHOLD ? '#b83232' : _mlResult.total >= V2_MED_THRESHOLD ? '#d4722a' : '#2e7d5a';
 
   const riskLabel = { High: 'HIGH RISK', Medium: 'MODERATE RISK', Low: 'LOW RISK' };
   const riskBg    = { High: '#b83232', Medium: '#c46020', Low: '#1e7a4a' };
@@ -4007,12 +4007,18 @@ function computeRiskScoreV2(zoneData, zoneId) {
   };
 }
 
+// v2 uses a geometric mean which naturally compresses scores into a
+// narrower range than v1's weighted sum. Thresholds calibrated so a
+// typical Cape & Islands zone distribution spreads across all three bands.
+const V2_HIGH_THRESHOLD = 6.0;
+const V2_MED_THRESHOLD  = 4.0;
+
 function buildRiskScoreV2HTML(zoneData, zoneId) {
   const result = computeRiskScoreV2(zoneData, zoneId);
   const score = result.total.toFixed(1);
   const pct = Math.min(result.total / 10 * 100, 100);
-  const color = result.total >= 7 ? '#b83232' : result.total >= 4 ? '#d4722a' : '#2e7d5a';
-  const riskLabel = result.total >= 7 ? 'High' : result.total >= 4 ? 'Medium' : 'Low';
+  const color = result.total >= V2_HIGH_THRESHOLD ? '#b83232' : result.total >= V2_MED_THRESHOLD ? '#d4722a' : '#2e7d5a';
+  const riskLabel = result.total >= V2_HIGH_THRESHOLD ? 'High' : result.total >= V2_MED_THRESHOLD ? 'Medium' : 'Low';
 
   const dim = (name, data, dimColor) => {
     const dimPct = Math.min(data.score / 10 * 100, 100);
@@ -4066,7 +4072,7 @@ function recolorByMLScore() {
     var d = areaData[id];
     if (!d) return;
     var score = computeRiskScoreV2(d, id).total;
-    var mlLevel = score >= 7 ? 'High' : score >= 4 ? 'Medium' : 'Low';
+    var mlLevel = score >= V2_HIGH_THRESHOLD ? 'High' : score >= V2_MED_THRESHOLD ? 'Medium' : 'Low';
     var color = mlRiskColor[mlLevel];
     polys.forEach(function(p) {
       if (color) p.setStyle({ color: color, fillColor: color });
