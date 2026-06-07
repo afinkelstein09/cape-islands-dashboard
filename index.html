@@ -1189,11 +1189,17 @@
 
     <div class="method-section">
       <h3>4 · Composite Risk Index</h3>
-      <p>Each zone receives a composite score (0–10) combining weighted erosion rate, trend direction, recent acceleration, habitat stress, and threat severity. The erosion-rate component prefers the CoastSat-derived 7-year rate when available, falling back to the published USGS/MCZM survey rate otherwise.</p>
-      <p>The index ranks zones so conservation effort can be prioritized where multiple factors overlap, not just where erosion is fastest.</p>
-      <p><strong>Thresholds:</strong> ≥7 = <span style="color:#b83232">High</span>, 4–7 = <span style="color:#d4722a">Medium</span>, &lt;4 = <span style="color:#2e7d5a">Low</span>. Zone polygon colors on the map reflect this score.</p>
+      <p>Each zone receives a composite score (0–10) built from three independent dimensions — the same <strong>Hazard × Exposure × Vulnerability</strong> framework FEMA, IPCC, and most coastal-risk literature use. The three dimensions are computed separately and then averaged into the composite.</p>
+      <div style="margin:.5rem 0;font-size:.78rem;color:var(--muted);line-height:1.55">
+        <p style="margin:0 0 .3rem"><strong style="color:#b83232">Hazard</strong> — how dangerous is the physical process here? Combines the 7-year erosion rate (prefers CoastSat ML rate when available, falls back to USGS/MCZM survey), the trend direction (accelerating / steady / decelerating), and the zone's ocean exposure (open Atlantic vs. sheltered bay).</p>
+        <p style="margin:0 0 .3rem"><strong style="color:#d4722a">Exposure</strong> — what's in harm's way? Combines building density along the coast, habitat coverage within the zone, and protected-land presence.</p>
+        <p style="margin:0 0 .3rem"><strong style="color:#6c5ce7">Vulnerability</strong> — how easily does damage propagate? Combines beach type (cliffs and marshes don't recover; sandy beaches rebuild; barrier islands roll back), shoreline armoring, and current habitat stress.</p>
+      </div>
+      <p><strong>Thresholds are relative, not absolute.</strong> Each zone is ranked against the other 18 in the region — the bottom third are colored <span style="color:#2e7d5a">Low</span>, the middle third <span style="color:#d4722a">Medium</span>, the top third <span style="color:#b83232">High</span>. This means "Low" here means lower-risk *relative to other Cape & Islands zones*, not absolutely safe. Zone polygon colors on the map reflect this ranking.</p>
+      <p>The framework helps surface zones where multiple factors overlap. A zone with high erosion but nothing built behind it scores differently from a zone with moderate erosion and dense development.</p>
       <div>
-        <span class="method-tag">Weights — erosion .45 · trend .15 · habitat .15 · accel .15 · risks .10</span>
+        <span class="method-tag">Hazard × Exposure × Vulnerability</span>
+        <span class="method-tag">Quantile thresholds (33% / 67%)</span>
       </div>
     </div>
 
