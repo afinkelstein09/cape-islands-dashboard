@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -151,6 +152,7 @@ def fetch_sst_history(start: int = 2005, end: int | None = None) -> tuple[list[i
             means.append(round(mean, 2))
     if len(years) >= 4:
         return years, means
+    print("Warning: NOAA SST fetch came back short — using seed data", file=sys.stderr)
     return list(seed_data.SST_YEARS), list(seed_data.SST_VALUES_F)
 
 
@@ -174,6 +176,7 @@ def fetch_slr_history(start: int = 1993, end: int | None = None) -> tuple[list[i
         msl_in.append(round(inches - baseline, 2))
     if len(years) >= 4:
         return years, msl_in
+    print("Warning: NOAA SLR fetch came back short — using seed data", file=sys.stderr)
     return list(seed_data.SLR_YEARS), list(seed_data.SLR_VALUES_IN)
 
 

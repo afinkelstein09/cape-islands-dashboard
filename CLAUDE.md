@@ -33,6 +33,14 @@ across **19 zones** in Cape Cod, Martha's Vineyard, and Nantucket. The whole
 dashboard is one `index.html` (~4,100 lines: HTML + inline CSS + inline JS).
 Two Python pipelines produce the static JSON files the dashboard consumes:
 
+> **This is an independent, ongoing project — that is the whole point of it.**
+> Andrew built it for its own sake and will keep building it indefinitely. The
+> Congressional App Challenge is a *side entry*, one near-term milestone he's
+> choosing to submit it to — NOT the reason the project exists and NOT its sole
+> goal. Don't let CAC framing drive design decisions; build the best long-lived
+> civic dashboard, and the competition takes care of itself. When CAC and the
+> long-term health of the project conflict, the project wins.
+
 - `probabilistic_forecasting/` → produces `forecasts.json` (GP-based ocean
   forecasts with 90% confidence bands)
 - `coastsat_segmentation/` → produces `zones_ml.json` (CoastSat U-Net derived
@@ -40,11 +48,12 @@ Two Python pipelines produce the static JSON files the dashboard consumes:
 
 ---
 
-## Submitting to Congressional App Challenge (CAC)
+## Side milestone: Congressional App Challenge (CAC)
 
-Andrew plans to submit this project to the **2026 Congressional App Challenge**
-in **~170 days** (deadline typically early November). The roadmap below was
-designed with this submission in mind.
+Andrew plans to *also* submit this project to the **2026 Congressional App
+Challenge** in **~170 days** (deadline typically early November) — as a side
+entry, not the project's purpose (see the framing note above). The roadmap
+below serves the project first; CAC just happens to benefit from the same work.
 
 ### Key research findings (verified via deep-research workflow)
 - CAC rubric: 30 points total, split 50/50 Concept (15) / Technology (15)
@@ -141,7 +150,8 @@ decisions are Andrew's, and the WRWA validation shows real-world impact.
 
 ## Roadmap (the active task list)
 
-In priority order for the CAC submission:
+In priority order for the project (CAC is one milestone along the way, not the
+target these are aimed at):
 
 1. **Finish CoastSat for all 18 zones + ship `zones_ml.json` to live** — refine
    the 4 broken polygons, complete the 7 remaining zones, push. Biggest visual
@@ -157,7 +167,8 @@ In priority order for the CAC submission:
 Things NOT to do:
 - Don't try to build a separate WRWA water-quality dashboard for CAC. Reference
   it in the narrative but submit only Cape & Islands.
-- Don't add unnecessary features. Every new feature = more code to defend to judges.
+- Don't add unnecessary features. Every new feature = more code to maintain
+  long-term (and, secondarily, more to defend to judges). Keep it focused.
 
 ---
 

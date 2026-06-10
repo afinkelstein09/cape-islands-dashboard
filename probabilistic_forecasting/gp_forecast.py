@@ -4,10 +4,11 @@ Kernel: ConstantKernel * RBF + WhiteNoise — RBF captures the smooth trend,
 WhiteNoise absorbs measurement noise, ConstantKernel sets the prior variance.
 All bounds are wide enough for sklearn to fit by ML II without us tuning.
 
-Outlier handling: fit once, compute residuals against the mean prediction at
-training x's, flag any point > 3 standard deviations from zero residual, refit
-without those points. Flagged years are reported in the output JSON so the
-dashboard can show why a value was set aside.
+Outlier handling (deliberately conservative — earlier versions falsely flagged
+real monotonic trends): only runs when n >= 8. A point is flagged when its
+residual exceeds BOTH 3 x MAD-sigma AND 10% of the y-range, and never more
+than 25% of points are stripped. Flagged years are reported in the output
+JSON so the dashboard can show why a value was set aside.
 """
 
 from __future__ import annotations
