@@ -367,6 +367,19 @@
     .chart-card canvas { max-height: 160px; }
     .chart-card.full canvas { max-height: 150px; }
 
+    .chart-card .cstat { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; margin: .1rem 0 .55rem; }
+    .chart-card .cnum  { font-size: 1.35rem; font-weight: 700; color: var(--navy); line-height: 1; }
+    .chart-card .cchip { font-size: .64rem; font-weight: 600; padding: .12rem .42rem; border-radius: 4px; white-space: nowrap; }
+    .chart-card .cchip.warm { background: rgba(212,114,42,.15); color: #b05e18; }
+    .chart-card .cchip.bad  { background: rgba(184,50,50,.13);  color: #a82d2d; }
+    .chart-card .ctake { font-size: .7rem; color: var(--muted); line-height: 1.45; margin-top: .55rem; }
+    .ov-legend { display: flex; flex-wrap: wrap; gap: 1.1rem; align-items: center; font-size: .68rem; color: var(--muted); margin-bottom: 1.1rem; padding-bottom: .9rem; border-bottom: 1px solid var(--border); }
+    .ov-legend .lg { display: flex; align-items: center; gap: .4rem; }
+    .ov-legend .sw { width: 17px; display: inline-block; }
+    .ov-legend .sw.solid  { height: 3px; border-radius: 2px; background: #1a8a9a; }
+    .ov-legend .sw.dash-v { height: 0; border-top: 2px dashed #6c5ce7; }
+    .ov-legend .sw.dash-g { height: 0; border-top: 2px dashed #9aa7ad; }
+
     .eco-grid-ov { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; }
     .eco-card-ov {
       background: var(--white); border: 1px solid var(--border);
@@ -887,30 +900,39 @@
     <button class="ov-close" onclick="closeAllOverlays()">&#x2715;</button>
   </div>
   <div class="ov-body">
+    <div class="ov-legend">
+      <span class="lg"><span class="sw solid"></span>Observed</span>
+      <span class="lg"><span class="sw dash-v"></span>Forecast (ML, 90% band)</span>
+      <span class="lg"><span class="sw dash-g"></span>Baseline / reference</span>
+    </div>
     <div class="ov-section-title">Temperature &amp; Sea Level</div>
     <div class="charts-grid">
       <div class="chart-card">
         <div class="ct">Sea Surface Temperature <span class="ml-badge" title="Forecast for this chart uses Gaussian Process machine-learning regression with a 90% confidence band.">ML</span></div>
-        <div class="cs"></div>
+        <div class="cstat"><span class="cnum" id="stat-sst-num">&mdash;</span><span class="cchip warm" id="stat-sst-chip"></span></div>
         <canvas id="chart-sst"></canvas>
+        <div class="ctake">Cape waters show a steady long-term warming trend, consistent with the broader Gulf of Maine.</div>
       </div>
       <div class="chart-card">
         <div class="ct">Sea Level Rise <span class="ml-badge" title="Forecast for this chart uses Gaussian Process machine-learning regression with a 90% confidence band.">ML</span></div>
-        <div class="cs"></div>
+        <div class="cstat"><span class="cnum" id="stat-slr-num">&mdash;</span><span class="cchip bad" id="stat-slr-chip"></span></div>
         <canvas id="chart-slr"></canvas>
+        <div class="ctake">Sea level keeps climbing &mdash; the Northeast Atlantic is a documented hotspot of accelerated rise.</div>
       </div>
     </div>
     <div class="ov-section-title" style="margin-top:1.25rem">Chemistry &amp; Conditions</div>
     <div class="charts-grid">
       <div class="chart-card">
         <div class="ct">Ocean pH</div>
-        <div class="cs"></div>
+        <div class="cstat"><span class="cnum" id="stat-ph-num">&mdash;</span><span class="cchip bad" id="stat-ph-chip"></span></div>
         <canvas id="chart-ph"></canvas>
+        <div class="ctake">Steadily acidifying as the ocean absorbs CO&#8322; &mdash; a long-term stress on shellfish and larvae.</div>
       </div>
       <div class="chart-card">
         <div class="ct">Salinity <span class="ml-badge" title="Forecast for this chart uses Gaussian Process machine-learning regression with a 90% confidence band.">ML</span></div>
-        <div class="cs"></div>
+        <div class="cstat"><span class="cnum" id="stat-sal-num">&mdash;</span><span class="cchip warm" id="stat-sal-chip"></span></div>
         <canvas id="chart-salinity"></canvas>
+        <div class="ctake">Gradually freshening over two decades &mdash; a signal of shifting precipitation and ocean mixing.</div>
       </div>
     </div>
   </div>
@@ -2515,6 +2537,7 @@ const cDefaults = {
   responsive: true, maintainAspectRatio: true,
   plugins: {
     legend: {
+      display: false,
       onClick: _mlAwareLegendOnClick,
       labels: {
         font: { size: 10 }, boxWidth: 10, padding: 8,
@@ -2547,7 +2570,7 @@ function initCharts() {
       labels: sstLabels,
       datasets: [
         { label: 'Annual Avg °F', data: sstValues, borderColor: '#1a8a9a', backgroundColor: 'rgba(26,138,154,.1)', tension: 0.4, fill: true, pointRadius: 3 },
-        { label: '30-yr Baseline', data: Array(sstLabels.length).fill(53.2), borderColor: '#d4722a', borderDash: [5,4], borderWidth: 1.5, pointRadius: 0, fill: false }
+        { label: '30-yr Baseline', data: Array(sstLabels.length).fill(53.2), borderColor: '#9aa7ad', borderDash: [5,4], borderWidth: 1.5, pointRadius: 0, fill: false }
       ]
     },
     options: {
@@ -2570,7 +2593,7 @@ function initCharts() {
     type: 'bar',
     data: {
       labels: slrLabels,
-      datasets: [{ label: 'Inches above 1993 base', data: slrValues, backgroundColor: 'rgba(184,50,50,.7)', borderRadius: 3 }]
+      datasets: [{ label: 'Inches above 1993 base', data: slrValues, backgroundColor: 'rgba(26,138,154,.7)', borderRadius: 3 }]
     },
     options: {
       ...cDefaults,
@@ -2610,13 +2633,13 @@ function initCharts() {
     _phLabels.push(String(_phLastYear));
     _phValues.push(+((8.05 - (_phLastYear - 2023) * 0.005).toFixed(2)));
   }
-  new Chart(document.getElementById('chart-ph'), {
+  phChartInstance = new Chart(document.getElementById('chart-ph'), {
     type: 'line',
     data: {
       labels: _phLabels,
       datasets: [
-        { label: 'Ocean pH', data: _phValues, borderColor: '#b83232', backgroundColor: 'rgba(184,50,50,.1)', tension: 0.4, fill: true, pointRadius: 3 },
-        { label: 'Pre-industrial (8.18)', data: Array(_phLabels.length).fill(8.18), borderColor: '#2e7d5a', borderDash: [5,4], borderWidth: 1.5, pointRadius: 0, fill: false }
+        { label: 'Ocean pH', data: _phValues, borderColor: '#1a8a9a', backgroundColor: 'rgba(26,138,154,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+        { label: 'Pre-industrial (8.18)', data: Array(_phLabels.length).fill(8.18), borderColor: '#9aa7ad', borderDash: [5,4], borderWidth: 1.5, pointRadius: 0, fill: false }
       ]
     },
     options: { ...cDefaults, scales: { ...cDefaults.scales, y: { ...cDefaults.scales.y, min: 8.00, max: 8.25 } } }
@@ -2637,6 +2660,7 @@ function initCharts() {
   });
 
   // Apply ML trend projections after charts are initialized
+  refreshOceanStats();
   setTimeout(function() { applyAllProjections(); }, 200);
 }
 
@@ -3483,6 +3507,42 @@ async function fetchSeaLevel() {
 let slrChartInstance = null;
 let sstChartInstance = null;
 let salinityChartInstance = null;
+let phChartInstance = null;
+
+// ── HEADLINE STATS: latest observed value + change since the first year ──
+// Reads observed datasets[0] (finite values only, so it ignores forecast
+// padding/nulls) and writes the big number + trend chip on each ocean card.
+function _observedPairs(chart) {
+  if (!chart || !chart.data) return [];
+  const labels = chart.data.labels || [];
+  const data = (chart.data.datasets[0] || {}).data || [];
+  const out = [];
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i];
+    if (v !== null && v !== undefined && isFinite(v)) out.push({ year: labels[i], val: +v });
+  }
+  return out;
+}
+function setOceanStat(prefix, chart, unit, decimals, tone) {
+  const numEl  = document.getElementById(prefix + '-num');
+  const chipEl = document.getElementById(prefix + '-chip');
+  if (!numEl || !chipEl) return;
+  const pairs = _observedPairs(chart);
+  if (pairs.length < 2) return;
+  const first = pairs[0], last = pairs[pairs.length - 1];
+  const delta = last.val - first.val;
+  numEl.textContent = last.val.toFixed(decimals) + unit;
+  const arrow = delta >= 0 ? '▲' : '▼';
+  const sign  = delta >= 0 ? '+' : '−';
+  chipEl.textContent = arrow + ' ' + sign + Math.abs(delta).toFixed(decimals) + unit + ' since ' + first.year;
+  chipEl.className = 'cchip ' + tone;
+}
+function refreshOceanStats() {
+  setOceanStat('stat-sst', sstChartInstance, '°F', 1, 'warm');
+  setOceanStat('stat-slr', slrChartInstance, ' in', 1, 'bad');
+  setOceanStat('stat-ph',  phChartInstance,  '',     2, 'bad');
+  setOceanStat('stat-sal', salinityChartInstance, ' PSU', 1, 'warm');
+}
 
 function updateSLRChart(years, values) {
   // If the chart already exists, update its data
@@ -3492,6 +3552,7 @@ function updateSLRChart(years, values) {
     slrChartInstance.data.datasets[0].data = values;
     slrChartInstance.update();
     addSLRTrendProjection(slrChartInstance, 10, 'slr_forecast');
+    refreshOceanStats();
   } else {
     // Store the data so initCharts() can use it
     window._liveYears  = years;
@@ -3611,6 +3672,7 @@ function updateSSTChart(years, values) {
     window._liveSSTYears  = years;
     window._liveSSTValues = values;
   }
+  refreshOceanStats();
   setUpdatedTime();
 }
 
@@ -3625,6 +3687,7 @@ function updateSalinityChart(years, values) {
     window._liveSalYears  = years;
     window._liveSalValues = values;
   }
+  refreshOceanStats();
   setUpdatedTime();
 }
 
@@ -3807,6 +3870,7 @@ function applyAllProjections() {
   if (sstChartInstance)      addTrendProjection(sstChartInstance, 5, 'sst_forecast');
   if (salinityChartInstance) addTrendProjection(salinityChartInstance, 5, 'salinity_forecast');
   if (slrChartInstance)      addSLRTrendProjection(slrChartInstance, 10, 'slr_forecast');
+  refreshOceanStats();
 }
 
 // ── ML FEATURE 2: ZONE RISK SCORING MODEL ──────────────────────
