@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "description": "Region-wide vegetation greenness change (NDVI) for the Cape & Islands, computed in Google Earth Engine from Sentinel-2 imagery.",
+    "index": "NDVI",
+    "source": "Sentinel-2 (Google Earth Engine)",
+    "units": "change in mean NDVI over the trailing window (dimensionless)",
+    "windows": ["2yr", "5yr", "7yr", "8yr"],
+    "note": "Negative values indicate declining vegetation greenness. Windows are relative (trailing N-year change), not fixed calendar years.",
+    "displayed_in": "Ecosystem Health overlay, per-region 'Satellite NDVI' cards"
+  },
+  "marthas_vineyard": { "2yr_ndvi_change": 0.0100, "5yr_ndvi_change": -0.0334, "7yr_ndvi_change": -0.0512, "8yr_ndvi_change": -0.0925 },
+  "nantucket":        { "2yr_ndvi_change": -0.0122, "5yr_ndvi_change": -0.0109, "7yr_ndvi_change": -0.0493, "8yr_ndvi_change": -0.0619 },
+  "cape_cod":         { "2yr_ndvi_change": -0.0354, "5yr_ndvi_change": -0.0533, "7yr_ndvi_change": -0.0840, "8yr_ndvi_change": -0.0670 }
+}

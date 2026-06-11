@@ -383,11 +383,20 @@
     .eco-grid-ov { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; }
     .eco-card-ov {
       background: var(--white); border: 1px solid var(--border);
-      border-radius: 8px; padding: .85rem .9rem; text-align: center;
+      border-radius: 8px; padding: .9rem 1rem;
     }
-    .eco-card-ov .ename { font-size: .72rem; font-weight: 600; color: var(--text); margin-bottom: .3rem; }
-    .eco-card-ov .estatus { font-size: .68rem; font-weight: 700; padding: .15rem .45rem; border-radius: 4px; display: inline-block; margin-bottom: .4rem; }
-    .eco-card-ov .edesc  { font-size: .72rem; color: var(--muted); line-height: 1.4; text-align: left; }
+    .eco-card-ov .ename { font-size: .82rem; font-weight: 700; color: var(--navy); margin-bottom: .35rem; }
+    .eco-card-ov .estatus { font-size: .64rem; font-weight: 700; padding: .14rem .5rem; border-radius: 4px; display: inline-block; margin-bottom: .55rem; }
+    .eco-card-ov .edesc  { font-size: .72rem; color: var(--muted); line-height: 1.5; text-align: left; }
+    .eco-card-ov .cstat { display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; margin: .15rem 0 .6rem; }
+    .eco-card-ov .cnum  { font-size: 1.2rem; font-weight: 700; color: var(--navy); line-height: 1; }
+    .eco-card-ov .cchip { font-size: .6rem; font-weight: 600; padding: .1rem .4rem; border-radius: 4px; white-space: nowrap; }
+    .eco-card-ov .cchip.up   { background: rgba(46,125,90,.14); color: #2e7d5a; }
+    .eco-card-ov .cchip.down { background: rgba(184,50,50,.13);  color: #a82d2d; }
+    .ov-legend .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .ov-legend .dot.es-good    { background: var(--green); }
+    .ov-legend .dot.es-fair    { background: var(--warn); }
+    .ov-legend .dot.es-concern { background: var(--red); }
 
     .erosion-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
     .erosion-table th {
@@ -943,7 +952,7 @@
   <div class="ov-header">
     <div>
       <h2>Ecosystem Health</h2>
-      <p>Habitat status updated quarterly from aerial surveys, satellite NDVI, and field monitoring</p>
+      <p>Habitat status compiled from published research, agency monitoring, and satellite vegetation analysis</p>
     </div>
     <button class="ov-close" onclick="closeAllOverlays()">&#x2715;</button>
   </div>
@@ -953,6 +962,11 @@
       <button class="rank-sort-btn" onclick="showEcoRegion('mv',this)">Martha's Vineyard</button>
       <button class="rank-sort-btn" onclick="showEcoRegion('ack',this)">Nantucket</button>
       <button class="rank-sort-btn" onclick="showEcoRegion('cc',this)">Cape Cod</button>
+    </div>
+    <div class="ov-legend">
+      <span class="lg"><span class="dot es-good"></span>Good</span>
+      <span class="lg"><span class="dot es-fair"></span>Fair</span>
+      <span class="lg"><span class="dot es-concern"></span>Concern</span>
     </div>
 
     <!-- ALL REGIONS -->
@@ -996,8 +1010,9 @@
           <div class="edesc">Gay Head cliffs retreating through groundwater-driven mass wasting. North Shore glacial moraine bluffs failing episodically. The Wampanoag Tribe and Tufts University are partnering on bluff stability modeling through a CZM grant.</div></div>
         <div class="eco-card-ov"><div class="ename">Commercial Fishing</div><div class="estatus es-fair">Fair</div>
           <div class="edesc">Menemsha Harbor fleet stable but dependent on continued inlet dredging. Lobster catch declining with warming waters. Scallop and shellfish harvests remain economically important for the island.</div></div>
-        <div class="eco-card-ov"><div class="ename">Satellite NDVI</div><div class="estatus es-good">Good</div>
-          <div class="edesc">Satellite vegetation index shows recovery over the 2-year window after a 7-year decline. Beach grass plantings and reduced storm frequency in recent seasons are likely contributing factors.</div></div>
+        <div class="eco-card-ov"><div class="ename">Vegetation Health</div><div class="estatus es-good">Good</div>
+          <div class="cstat"><span class="cchip down">7-yr −0.051</span><span class="cchip up">2-yr +0.010</span></div>
+          <div class="edesc">Region-wide vegetation greenness (Sentinel-2 NDVI, computed in Google Earth Engine). A 7-year decline with recovery in the most recent 2-year window — beach-grass plantings and milder recent storm seasons are likely contributing.</div></div>
       </div>
     </div>
 
@@ -1019,8 +1034,9 @@
           <div class="edesc">Bay scallop harvest fluctuating year to year. Nantucket Harbor supports active shellfishing. Water quality monitoring ongoing through the Nantucket Conservation Foundation. Ocean acidification a growing long-term concern.</div></div>
         <div class="eco-card-ov"><div class="ename">Freshwater Ponds</div><div class="estatus es-fair">Fair</div>
           <div class="edesc">Hummock Pond and other back-barrier ponds at risk as south shore barriers roll landward. Saltwater intrusion increasing with overwash frequency. Coskata Pond ecology depends on Great Point spit integrity.</div></div>
-        <div class="eco-card-ov"><div class="ename">Satellite NDVI</div><div class="estatus es-fair">Fair</div>
-          <div class="edesc">Satellite vegetation index shows stabilization — 2-year signal near flat after a 7-year decline. Bluff-top vegetation loss at 'Sconset partially offset by dune recovery in other areas.</div></div>
+        <div class="eco-card-ov"><div class="ename">Vegetation Health</div><div class="estatus es-fair">Fair</div>
+          <div class="cstat"><span class="cchip down">7-yr −0.049</span><span class="cchip down">2-yr −0.012</span></div>
+          <div class="edesc">Region-wide vegetation greenness (Sentinel-2 NDVI, computed in Google Earth Engine). A 7-year decline that has nearly flattened in the last 2 years — bluff-top vegetation loss at 'Sconset is partly offset by dune recovery elsewhere.</div></div>
       </div>
     </div>
 
@@ -1042,8 +1058,9 @@
           <div class="edesc">Wellfleet oysters thriving — town manages extensive grant areas in the harbor. Brewster and Dennis aquaculture programs active. Ocean acidification a long-term threat to larval survival. Scallops declining in nitrogen-impacted waters.</div></div>
         <div class="eco-card-ov"><div class="ename">Lobster</div><div class="estatus es-concern">Concern</div>
           <div class="edesc">Southern New England lobster populations in long-term decline as warming pushes habitat northward. Cape Cod Bay catch down significantly from historical levels. Major economic impact for Chatham and Outer Cape fishing fleets.</div></div>
-        <div class="eco-card-ov"><div class="ename">Satellite NDVI</div><div class="estatus es-concern">Concern</div>
-          <div class="edesc">Satellite vegetation index shows ongoing decline across both 2-year and 7-year windows. Outer Cape dune vegetation loss and salt marsh dieback are the primary drivers. No recovery signal yet.</div></div>
+        <div class="eco-card-ov"><div class="ename">Vegetation Health</div><div class="estatus es-concern">Concern</div>
+          <div class="cstat"><span class="cchip down">7-yr −0.084</span><span class="cchip down">2-yr −0.035</span></div>
+          <div class="edesc">Region-wide vegetation greenness (Sentinel-2 NDVI, computed in Google Earth Engine). Ongoing decline across both the 7-year and 2-year windows — Outer Cape dune loss and salt-marsh dieback are the primary drivers, with no recovery signal yet.</div></div>
       </div>
     </div>
 
@@ -2116,7 +2133,7 @@ function openAreaPanel(id) {
           <span class="veg-badge es-${vegStat.statusCls}">${vegStat.status}</span>
         </div>
         <div class="veg-detail">${vegStat.detail}</div>
-        <div class="veg-source">Satellite NDVI · ${vegStat.region} region</div>
+        <div class="veg-source">Vegetation health (satellite) · ${vegStat.region} region</div>
       </div>` : '';
       return vegCard + d.habitats.map(h => `
         <div class="eco-row">
