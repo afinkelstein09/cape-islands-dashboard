@@ -95,7 +95,7 @@ def main() -> None:
             "n_detections": n_detections,
             "n_transects": n_transects,
             "model_metadata": {
-                "model": "coastsat_unet_v1",
+                "model": "coastsat_mlp_v1",
                 "aggregation": METHOD_TAG,
                 "source": "Sentinel-2 via Google Earth Engine",
                 "season": "Sept 1 - Oct 31",

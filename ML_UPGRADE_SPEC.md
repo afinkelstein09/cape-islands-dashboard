@@ -40,7 +40,7 @@ A deep-learning model (U-Net or similar) that segments Sentinel-2 imagery into w
     },
     "confidence": 0.92,
     "model_metadata": {
-      "model": "coastsat_unet_v1",
+      "model": "coastsat_mlp_v1",
       "training_images": 1200,
       "accuracy": 0.94
     }
