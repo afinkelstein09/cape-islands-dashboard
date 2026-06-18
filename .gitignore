@@ -23,6 +23,10 @@ classification
 deploy/
 publish/
 
+# CoastSat ML output — NOT deployed yet (broken-polygon zones still pending).
+# When ready to ship, force-add with: git add -f zones_ml.json
+zones_ml.json
+
 # OS / editor
 .DS_Store
 .idea/
