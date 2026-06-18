@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "dashboard",
-      "runtimeExecutable": "/Users/andrewfinkekelstein/Desktop/cape-islands-dashboard/.venv/bin/python",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "/Users/andrewfinkekelstein/Desktop/cape-islands-dashboard"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "const http=require('http'),fs=require('fs'),path=require('path');const root='/Users/andrewfinkekelstein/Desktop/cape-islands-dashboard';const T={'.html':'text/html','.js':'text/javascript','.json':'application/json','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'};http.createServer((req,res)=>{let p=decodeURIComponent(req.url.split('?')[0]);if(p==='/')p='/index.html';const f=path.join(root,p);fs.readFile(f,(e,d)=>{if(e){res.writeHead(404);res.end('not found');return;}res.writeHead(200,{'Content-Type':T[path.extname(f)]||'application/octet-stream'});res.end(d);});}).listen(8765,()=>console.log('serving on 8765'));"],
       "port": 8765
     }
   ]

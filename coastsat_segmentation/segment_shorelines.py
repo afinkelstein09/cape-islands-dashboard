@@ -16,8 +16,19 @@ import matplotlib
 matplotlib.use("Agg")  # avoid the macOS GUI backend (showMaximized() crashes)
 
 import pickle
+import warnings
 
 import numpy as np
+
+# CoastSat ships its sand/water classifier as an sklearn 0.22 pickle; we run
+# sklearn 1.8. For an MLPClassifier `.predict()` is a deterministic forward
+# pass over the stored weight arrays, so the cross-version result is identical
+# — the InconsistentVersionWarning is cosmetic. Silence it for clean logs.
+try:
+    from sklearn.exceptions import InconsistentVersionWarning
+    warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+except ImportError:
+    pass
 
 from .download_imagery import IMAGERY_DIR, yearly_sitename
 from .zones import coastsat_polygon
@@ -65,7 +76,7 @@ def _reproject_to_latlng(line) -> list[list[float]]:
 
 def extract_year(zone_id: str, year: int) -> list[dict]:
     """Run CoastSat on one (zone, year). Returns list of {date, points_latlng}."""
-    from coastsat import SDS_preprocess, SDS_shoreline
+    from coastsat import SDS_preprocess, SDS_shoreline, SDS_tools
 
     site_dir = IMAGERY_DIR / yearly_sitename(zone_id, year)
     md_path = site_dir / f"{yearly_sitename(zone_id, year)}_metadata.pkl"
@@ -79,6 +90,12 @@ def extract_year(zone_id: str, year: int) -> list[dict]:
     SDS_preprocess.save_jpg(metadata, settings, use_matplotlib=True)
 
     output = SDS_shoreline.extract_shorelines(metadata, settings)
+    # Canonical CoastSat cleanup (matches the author's example.py): drop
+    # same-day repeat scenes, then drop any scene whose georeferencing error
+    # exceeds 10 m. Both materially reduce noise before we measure change.
+    output = SDS_tools.remove_duplicates(output)
+    output = SDS_tools.remove_inaccurate_georef(output, 10)
+
     detections: list[dict] = []
     for date, line in zip(output.get("dates", []), output.get("shorelines", [])):
         if line is None or len(line) == 0:

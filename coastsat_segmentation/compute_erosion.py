@@ -24,11 +24,29 @@ measurement — no single global "alongshore direction" assumed.
 from __future__ import annotations
 
 import numpy as np
+from scipy.spatial import cKDTree
+from scipy.stats import theilslopes
 from shapely.geometry import LineString
 
-from .transects import generate_transects, latlng_to_utm_array
+from .transects import generate_transects, latlng_to_utm_array, main_shoreline_cluster
 
 METERS_PER_FOOT = 0.3048
+
+# Max distance (m) a detected shoreline point may sit from the reference
+# coastline (the main cluster) before it's discarded. Mirrors CoastSat's
+# `max_dist_ref`; 150 m is a touch looser than the canonical 100 m because our
+# reference is data-derived rather than hand-drawn.
+MAX_DIST_REF_M = 150.0
+
+# A transect must have at least this many yearly positions before its slope
+# is trusted — two points is just a line through noise. Three is the floor
+# that still lets the 3yr window (which spans at most three yearly medians)
+# produce a rate; Theil–Sen is well-defined at n=3.
+MIN_YEARS_PER_TRANSECT = 3
+# Fraction trimmed from each tail of the per-transect slope distribution
+# before taking the zone median, to drop transects that caught a spit,
+# inlet, or the wrong shoreline.
+TRANSECT_TRIM_FRAC = 0.20
 
 
 def transect_crossing(transect_start: np.ndarray, transect_end: np.ndarray,
@@ -59,9 +77,23 @@ def transect_crossing(transect_start: np.ndarray, transect_end: np.ndarray,
     return None
 
 
+def _filter_to_reference(shoreline_utm: np.ndarray, ref_tree: cKDTree | None) -> np.ndarray:
+    """Drop shoreline points farther than MAX_DIST_REF_M from the reference coast.
+
+    This is the post-hoc equivalent of CoastSat's `max_dist_ref`: a scene that
+    detected the wrong shoreline (the bay side of a two-coast polygon, or inland
+    speckle) gets those points removed before we measure a crossing.
+    """
+    if ref_tree is None or len(shoreline_utm) == 0:
+        return shoreline_utm
+    dists, _ = ref_tree.query(shoreline_utm)
+    return shoreline_utm[dists <= MAX_DIST_REF_M]
+
+
 def _per_transect_year_positions(
     transects: list[tuple[np.ndarray, np.ndarray]],
     year_to_detections: dict[int, list[dict]],
+    ref_tree: cKDTree | None = None,
 ) -> list[dict[int, float]]:
     """For each transect, compute the median shoreline-crossing distance per year.
 
@@ -73,6 +105,7 @@ def _per_transect_year_positions(
         for year, detections in year_to_detections.items():
             for det in detections:
                 shoreline_utm = latlng_to_utm_array(det.get("points", []))
+                shoreline_utm = _filter_to_reference(shoreline_utm, ref_tree)
                 d = transect_crossing(ts, te, shoreline_utm)
                 if d is not None:
                     year_positions.setdefault(year, []).append(d)
@@ -82,12 +115,33 @@ def _per_transect_year_positions(
 
 
 def _slope_m_per_yr(year_to_position: dict[int, float]) -> float | None:
-    if len(year_to_position) < 2:
+    """Robust per-transect slope (m/yr) via Theil–Sen.
+
+    Theil–Sen is the median of all pairwise slopes, so a single bad year
+    (cloud edge, high-tide scene) can't yank the fit the way ordinary
+    least-squares does. Requires MIN_YEARS_PER_TRANSECT points.
+    """
+    if len(year_to_position) < MIN_YEARS_PER_TRANSECT:
         return None
     years = np.array(sorted(year_to_position.keys()), dtype=float)
     positions = np.array([year_to_position[int(y)] for y in years], dtype=float)
-    slope = float(np.polyfit(years, positions, 1)[0])
+    slope = float(theilslopes(positions, years)[0])
     return slope
+
+
+def _trimmed_median(values: list[float]) -> float:
+    """Median after dropping TRANSECT_TRIM_FRAC from each tail.
+
+    Drops transects whose slope is an outlier relative to the others
+    (a transect crossing a spit/inlet or, in a broken polygon, the wrong
+    shore). With few transects the trim is skipped so we never throw away
+    most of the data.
+    """
+    arr = np.sort(np.array(values, dtype=float))
+    k = int(len(arr) * TRANSECT_TRIM_FRAC)
+    if k > 0 and len(arr) - 2 * k >= 3:
+        arr = arr[k:len(arr) - k]
+    return float(np.median(arr))
 
 
 def erosion_for_zone(zone_id: str, year_to_detections: dict[int, list[dict]]) -> dict:
@@ -106,7 +160,13 @@ def erosion_for_zone(zone_id: str, year_to_detections: dict[int, list[dict]]) ->
     if not transects:
         return _empty_result(year_to_detections, transects)
 
-    per_transect = _per_transect_year_positions(transects, year_to_detections)
+    # Reference coastline = the main detection cluster. Crossings from points
+    # far off it (wrong coast / inland speckle) are filtered out, our stand-in
+    # for CoastSat's max_dist_ref.
+    ref = main_shoreline_cluster(pts_utm)
+    ref_tree = cKDTree(ref) if len(ref) >= 20 else None
+
+    per_transect = _per_transect_year_positions(transects, year_to_detections, ref_tree)
     n_detections = sum(len(v) for v in year_to_detections.values())
 
     rates: dict[str, dict] = {}
@@ -126,7 +186,7 @@ def erosion_for_zone(zone_id: str, year_to_detections: dict[int, list[dict]]) ->
             if slope is not None:
                 per_transect_slopes.append(slope)
         if per_transect_slopes:
-            median_slope_m = float(np.median(per_transect_slopes))
+            median_slope_m = _trimmed_median(per_transect_slopes)
             rates[label] = {
                 "avg_ft_per_yr": round(median_slope_m / METERS_PER_FOOT, 2),
                 "n_transects": len(per_transect_slopes),

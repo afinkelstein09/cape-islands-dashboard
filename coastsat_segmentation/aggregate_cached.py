@@ -21,7 +21,7 @@ OUTPUT = REPO_ROOT / "zones_ml.json"
 
 START_YEAR = 2018
 END_YEAR = 2024
-METHOD_TAG = "transect_v3"
+METHOD_TAG = "transect_v5"
 
 
 def _load_existing() -> dict:

@@ -57,6 +57,25 @@ def latlng_to_utm_array(points_latlng: list[list[float]]) -> np.ndarray:
     return np.column_stack([e, n])
 
 
+def main_shoreline_cluster(pts_utm: np.ndarray) -> np.ndarray:
+    """Return the largest spatially-connected cluster of detection points.
+
+    This is our stand-in for a CoastSat reference shoreline: the dominant
+    coastline in the zone. Detections far from it (the wrong coast in a
+    multi-shore polygon, or speckle inland) can then be rejected, mirroring
+    CoastSat's `max_dist_ref` filter without a second segmentation pass.
+    """
+    if len(pts_utm) < 20:
+        return np.empty((0, 2))
+    db = DBSCAN(eps=CLUSTER_EPS_M, min_samples=CLUSTER_MIN_SAMPLES).fit(pts_utm)
+    labels = db.labels_
+    valid_labels = labels[labels >= 0]
+    if len(valid_labels) == 0:
+        return np.empty((0, 2))
+    largest_label = int(np.bincount(valid_labels).argmax())
+    return pts_utm[labels == largest_label]
+
+
 def generate_transects(zone_id: str, pts_utm: np.ndarray) -> list[tuple[np.ndarray, np.ndarray]]:
     """Build cross-shore transects for `zone_id` from pooled detection points.
 
@@ -66,14 +85,7 @@ def generate_transects(zone_id: str, pts_utm: np.ndarray) -> list[tuple[np.ndarr
     if len(pts_utm) < 20:
         return []
 
-    # Cluster shoreline points into spatially-connected segments
-    db = DBSCAN(eps=CLUSTER_EPS_M, min_samples=CLUSTER_MIN_SAMPLES).fit(pts_utm)
-    labels = db.labels_
-    valid_labels = labels[labels >= 0]
-    if len(valid_labels) == 0:
-        return []
-    largest_label = int(np.bincount(valid_labels).argmax())
-    main = pts_utm[labels == largest_label]
+    main = main_shoreline_cluster(pts_utm)
     if len(main) < 20:
         return []
 
